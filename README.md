@@ -170,6 +170,8 @@ $api = new IntegrationApi('https://platform.instafind.io', $connection);
   requests they run one after another through `wp_remote_request()`.
 
 ```php
+use Instafind\Sdk\ClientOptions;
+use Instafind\Sdk\Http\UserAgent;
 use Instafind\Sdk\Transport\WordPressTransport;
 
 $userAgent = new UserAgent('my-plugin', '2.0.1', home_url('/'));
