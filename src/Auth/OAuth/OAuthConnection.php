@@ -163,6 +163,7 @@ final class OAuthConnection implements Credential
         }
 
         $spent = '';
+        $fatal = false;
         try {
             // Renewed by another process while this one waited for the lock.
             if ($this->takeNewer($before)) {
@@ -196,12 +197,15 @@ final class OAuthConnection implements Credential
                     $fatal = false;
                 }
             }
-            $this->observer?->renewalFailed($e, $fatal);
-
-            return false;
+            $failure = $e;
         } finally {
             $this->store->releaseLock();
         }
+
+        // After the lock is released: an observer may connect or disconnect.
+        $this->observer?->renewalFailed($failure, $fatal);
+
+        return false;
     }
 
     /**
@@ -224,17 +228,21 @@ final class OAuthConnection implements Credential
     }
 
     /**
-     * Take the lock, waiting for a renewal that holds it. Whether it was
-     * taken: after LOCK_WAIT the caller goes ahead without it.
+     * Take the lock, waiting for a renewal that holds it. It keeps trying
+     * until the lock counts as stale, when the store hands it over, so only
+     * a store that breaks that promise leaves the caller without it.
      */
     private function lock(): bool
     {
-        if ($this->store->acquireLock(self::LOCK_STALE)) {
-            return true;
+        $deadline = $this->clock->now() + self::LOCK_STALE + 1;
+        while (!$this->store->acquireLock(self::LOCK_STALE)) {
+            if ($this->clock->now() >= $deadline) {
+                return false;
+            }
+            $this->sleeper->sleep(0.25);
         }
-        $this->waitForLock();
 
-        return $this->store->acquireLock(self::LOCK_STALE);
+        return true;
     }
 
     /** Wait until another process releases the lock, or LOCK_WAIT has passed. */

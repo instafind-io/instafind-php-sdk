@@ -15,6 +15,7 @@ use Psr\Http\Client\ClientInterface;
 use Psr\Http\Client\NetworkExceptionInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\StreamInterface;
 
 final class Psr18TransportTest extends TestCase
 {
@@ -83,5 +84,49 @@ final class Psr18TransportTest extends TestCase
         self::assertSame('/x', $out['x']->body());
         self::assertInstanceOf(Response::class, $out['y']);
         self::assertSame('/y', $out['y']->body());
+    }
+
+    public function testABodyThatFailsWhileReadIsATransportException(): void
+    {
+        $body = $this->createMock(StreamInterface::class);
+        $body->method('__toString')->willThrowException(new \RuntimeException('connection reset'));
+        $client = new class ($body) implements ClientInterface {
+            public function __construct(private StreamInterface $body) {}
+
+            public function sendRequest(RequestInterface $request): ResponseInterface
+            {
+                return (new PsrResponse(200))->withBody($this->body);
+            }
+        };
+        $factory = new Psr17Factory();
+
+        $out = (new Psr18Transport($client, $factory, $factory))->sendMany(['a' => new Request('GET', 'https://platform.example/')]);
+
+        self::assertInstanceOf(TransportException::class, $out['a']);
+        self::assertStringContainsString('connection reset', $out['a']->getMessage());
+    }
+
+    public function testTheClientExceptionIsNotKept(): void
+    {
+        $client = new class implements ClientInterface {
+            public function sendRequest(RequestInterface $request): ResponseInterface
+            {
+                throw new class ('timed out') extends \RuntimeException implements NetworkExceptionInterface {
+                    public function getRequest(): RequestInterface
+                    {
+                        throw new \LogicException();
+                    }
+                };
+            }
+        };
+        $factory = new Psr17Factory();
+
+        try {
+            (new Psr18Transport($client, $factory, $factory))->send(new Request('POST', 'https://platform.example/oauth/token', [], 'refresh_token=ifr_secret'));
+            self::fail('No exception');
+        } catch (TransportException $e) {
+            self::assertNull($e->getPrevious());
+            self::assertStringContainsString('timed out', $e->getMessage());
+        }
     }
 }

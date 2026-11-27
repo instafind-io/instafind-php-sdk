@@ -46,12 +46,14 @@ final class Psr18Transport implements Transport
             $psr = $psr->withBody($this->streamFactory->createStream($request->body()));
         }
 
+        // The client's exception is not chained: it may carry the request,
+        // and with it a bearer token or a refresh token.
         try {
             $response = $this->client->sendRequest($psr);
         } catch (NetworkExceptionInterface|RequestExceptionInterface $e) {
-            throw new TransportException('Instafind could not be reached: ' . $e->getMessage(), $request->url(), $e);
+            throw new TransportException('Instafind could not be reached: ' . $e->getMessage(), $request->url());
         } catch (ClientExceptionInterface $e) {
-            throw new TransportException('The HTTP client failed: ' . $e->getMessage(), $request->url(), $e);
+            throw new TransportException('The HTTP client failed: ' . $e->getMessage(), $request->url());
         }
 
         $headers = [];
@@ -60,7 +62,14 @@ final class Psr18Transport implements Transport
             $headers[strtolower((string) $name)] = $last === false ? '' : (string) $last;
         }
 
-        return new Response($response->getStatusCode(), $headers, (string) $response->getBody());
+        try {
+            $body = (string) $response->getBody();
+        } catch (\RuntimeException $e) {
+            // A streamed body can fail while it is read.
+            throw new TransportException('The answer could not be read: ' . $e->getMessage(), $request->url());
+        }
+
+        return new Response($response->getStatusCode(), $headers, $body);
     }
 
     public function sendMany(array $requests): array

@@ -13,6 +13,7 @@ use Instafind\Sdk\Auth\OAuth\TokenStore;
 use Instafind\Sdk\Exception\InstafindException;
 use Instafind\Sdk\Exception\TransportException;
 use Instafind\Sdk\Http\Response;
+use Instafind\Sdk\Support\Sleeper;
 use Instafind\Sdk\Testing\MockTransport;
 use Instafind\Sdk\Tests\Fixtures\FakeClock;
 use Instafind\Sdk\Tests\Fixtures\RecordingSleeper;
@@ -232,6 +233,120 @@ final class OAuthConnectionTest extends TestCase
 
         self::assertSame('ifr_1', $this->store->load()?->refreshToken());
         self::assertNotSame([], $this->sleeper->sleeps);
+    }
+
+    public function testDisconnectWaitsForARenewalAndRevokesWhatItStored(): void
+    {
+        $this->connect();
+        // A renewal in another process holds the lock and stores new tokens before it lets go.
+        $this->store->acquireLock(60);
+        $store = $this->store;
+        $sleeper = new class ($store) implements Sleeper {
+            public int $sleeps = 0;
+
+            public function __construct(private InMemoryTokenStore $store) {}
+
+            public function sleep(float $seconds): void
+            {
+                if (++$this->sleeps === 3) {
+                    $state = $this->store->load();
+                    \assert($state !== null);
+                    $this->store->save($state->withTokens(new Tokens('ifa_2', 'ifr_2', time() + 3600)));
+                    $this->store->releaseLock();
+                }
+            }
+        };
+        $lockedDuringRevoke = null;
+        $this->transport = new MockTransport(static function () use ($store, &$lockedDuringRevoke): Response {
+            $lockedDuringRevoke = $store->isLocked();
+
+            return new Response(200, [], '{}');
+        });
+        $connection = new OAuthConnection($this->store, $this->transport, null, null, $this->clock, $sleeper);
+
+        self::assertTrue($connection->disconnect());
+        self::assertTrue($lockedDuringRevoke);
+        parse_str((string) $this->transport->lastRequest()->body(), $form);
+        self::assertSame('ifr_2', $form['token']);
+        self::assertNull($this->store->load());
+        self::assertFalse($this->store->isLocked());
+    }
+
+    public function testConnectTakesTheLockWhenItIsTakenAgainAtOnce(): void
+    {
+        // The lock is released and taken again by the next renewal between two looks.
+        $store = new class ($this->store) implements TokenStore {
+            public int $tries = 0;
+
+            public ?bool $lockedOnSave = null;
+
+            public function __construct(private InMemoryTokenStore $inner) {}
+
+            public function load(): ?ConnectionState
+            {
+                return $this->inner->load();
+            }
+
+            public function save(ConnectionState $state): void
+            {
+                $this->lockedOnSave = $this->inner->isLocked();
+                $this->inner->save($state);
+            }
+
+            public function delete(): void
+            {
+                $this->inner->delete();
+            }
+
+            public function acquireLock(int $staleAfter): bool
+            {
+                return ++$this->tries > 3 && $this->inner->acquireLock($staleAfter);
+            }
+
+            public function releaseLock(): void
+            {
+                $this->inner->releaseLock();
+            }
+
+            public function isLocked(): bool
+            {
+                return false;
+            }
+        };
+        $connection = new OAuthConnection($store, $this->transport, null, null, $this->clock, $this->sleeper);
+
+        $connection->connect(OAuthClientTest::server(), 'client-1', new Tokens('ifa_1', 'ifr_1', $this->clock->now + 3600));
+
+        self::assertTrue($store->lockedOnSave);
+        self::assertFalse($this->store->isLocked());
+    }
+
+    public function testAnObserverMayDisconnectALostConnection(): void
+    {
+        $connection = null;
+        $observer = new class ($connection) implements ConnectionObserver {
+            public ?bool $disconnected = null;
+
+            public function __construct(private ?OAuthConnection &$connection) {}
+
+            public function renewalFailed(InstafindException $failure, bool $connectionLost): void
+            {
+                if ($connectionLost && $this->connection !== null) {
+                    $this->connection->disconnect();
+                    $this->disconnected = true;
+                }
+            }
+        };
+        $connection = new OAuthConnection($this->store, $this->transport, null, $observer, $this->clock, $this->sleeper);
+        $connection->connect(OAuthClientTest::server(), 'client-1', new Tokens('ifa_1', 'ifr_1', $this->clock->now + 3600));
+        $connection->bearer();
+        $this->transport->queueJson(400, ['error' => 'invalid_grant']);
+
+        self::assertFalse($connection->renew());
+        self::assertTrue($observer->disconnected);
+        self::assertNull($this->store->load());
+        self::assertSame([], $this->sleeper->sleeps);
+        self::assertFalse($this->store->isLocked());
     }
 
     public function testConnectHoldsTheRenewalLock(): void

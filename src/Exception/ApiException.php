@@ -168,7 +168,7 @@ class ApiException extends InstafindException
         if ($header === '') {
             return null;
         }
-        if (ctype_digit($header)) {
+        if (preg_match('/^[0-9]+$/', $header) === 1) {
             return (int) $header;
         }
         $timestamp = strtotime($header);

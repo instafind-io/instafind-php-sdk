@@ -78,6 +78,7 @@ final class ApiExceptionTest extends TestCase
         self::assertGreaterThanOrEqual(18, $seconds);
         self::assertLessThanOrEqual(20, $seconds);
         self::assertNull(ApiException::parseRetryAfter('soon'));
+        self::assertSame(12, ApiException::parseRetryAfter(' 12 '));
         self::assertSame(300, (new ApiException('x', 503, 'http_503', 9999))->retryDelay());
     }
 }
