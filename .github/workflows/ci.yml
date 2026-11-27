@@ -32,7 +32,9 @@ jobs:
       - name: Install dependencies
         run: composer update --no-interaction --no-progress --prefer-dist
       - name: PHPUnit
-        run: vendor/bin/phpunit
+        run: vendor/bin/phpunit --testsuite unit
+      - name: OpenAPI contract (openapi/instafind-v1.json)
+        run: vendor/bin/phpunit --testsuite contract
 
   static:
     name: PHPStan and php-cs-fixer
