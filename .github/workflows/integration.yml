@@ -1,0 +1,53 @@
+name: Live integration
+
+# The SDK against production's "PHP SDK CI" website, with its own
+# least-privilege site key (tests/Integration/LiveApiTest.php says what it
+# writes and cleans up). On a schedule, by hand, and before every release
+# (scripts/release.sh --push refuses a commit without a green run). Never on
+# pull requests: secrets must not reach a fork's code.
+#
+# Off until backend v3.0.0 is released: the new /api/public/v1 paths answer
+# only from then on. To turn it on, uncomment the schedule.
+
+on:
+  workflow_dispatch:
+  # schedule:
+  #   - cron: '17 5 * * *'
+
+permissions:
+  contents: read
+
+# One run at a time: they share the CI index.
+concurrency:
+  group: live-integration
+  cancel-in-progress: false
+
+jobs:
+  live:
+    if: github.repository == 'instafind-io/instafind-php-sdk'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: curl, json
+          coverage: none
+      - name: Install dependencies
+        run: composer update --no-interaction --no-progress --prefer-dist
+      - name: Live API
+        env:
+          INSTAFIND_CI_API_KEY: ${{ secrets.INSTAFIND_CI_API_KEY }}
+          INSTAFIND_CI_WEBSITE_ID: ${{ secrets.INSTAFIND_CI_WEBSITE_ID }}
+          INSTAFIND_CI_BASE_URL: ${{ secrets.INSTAFIND_CI_BASE_URL }}
+          # The search host shops use; the platform host answers the same paths.
+          INSTAFIND_CI_PUBLIC_BASE_URL: ${{ vars.INSTAFIND_CI_PUBLIC_BASE_URL || 'https://s.instafind.io' }}
+          # The reused CI index; the API cannot look it up by name.
+          INSTAFIND_CI_INDEX_ID: ${{ vars.INSTAFIND_CI_INDEX_ID }}
+        run: |
+          if [[ -z "$INSTAFIND_CI_API_KEY" ]]; then
+            echo "::error::The INSTAFIND_CI_API_KEY secret is missing."
+            exit 1
+          fi
+          vendor/bin/phpunit --testsuite integration --fail-on-skipped

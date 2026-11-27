@@ -74,6 +74,18 @@ test fails once a gap closes, so remove the entry then.
 Without a local PHP, run them in Docker, e.g.
 `docker run --rm -u "$(id -u)" -v "$PWD":/app -w /app php:8.1-cli vendor/bin/phpunit`.
 
+## Live integration test
+
+`.github/workflows/integration.yml` runs `tests/Integration/LiveApiTest.php`
+against production's "PHP SDK CI" website: by hand (`gh workflow run
+integration.yml`), on a schedule once enabled, and never on pull requests.
+Secrets `INSTAFIND_CI_API_KEY`, `INSTAFIND_CI_WEBSITE_ID`,
+`INSTAFIND_CI_BASE_URL`; repository variables `INSTAFIND_CI_INDEX_ID` (the
+reused index, as the API cannot list indexes) and optionally
+`INSTAFIND_CI_PUBLIC_BASE_URL` (default `https://s.instafind.io`). It writes
+three fixed products and deletes them, and sends one fixed order. Locally
+the suite skips without the key.
+
 ## Releases
 
 `scripts/release.sh <patch|minor|major>` shows what would be released;
