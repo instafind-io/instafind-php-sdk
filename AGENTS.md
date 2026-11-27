@@ -63,6 +63,14 @@ vendor/bin/php-cs-fixer fix --dry-run --diff        # PER-CS 2.0
 scripts/changelog-fragments.sh changelog.d
 ```
 
+`tests/Contract/OpenApiContractTest.php` checks the SDK against
+`openapi/instafind-v1.json`, a copy of the backend's
+`docs/openapi/instafind-v1.json`. Refresh it with
+`scripts/update-openapi.sh [ref]` when the backend's document changes, then fix
+what the test reports. Its two gap lists (`UNDECLARED_PARAMETERS`,
+`UNDOCUMENTED_FIELDS`) name what the document lags behind the backend; the
+test fails once a gap closes, so remove the entry then.
+
 Without a local PHP, run them in Docker, e.g.
 `docker run --rm -u "$(id -u)" -v "$PWD":/app -w /app php:8.1-cli vendor/bin/phpunit`.
 

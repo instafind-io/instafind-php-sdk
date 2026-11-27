@@ -1,0 +1,4142 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "Instafind API",
+        "version": "1",
+        "description": "The public API (`/api/public/v1`, no credential; the widget and shops call it, also on the search host https://s.instafind.io) and the integration API (`/api/integration/v1`, a site API key or an OAuth connection token). A path, a parameter or a field removed or changed here is a breaking change; a new one is not."
+    },
+    "servers": [
+        {
+            "url": "https://platform.instafind.io"
+        }
+    ],
+    "paths": {
+        "/api/integration/v1/key": {
+            "get": {
+                "tags": [
+                    "Integration API"
+                ],
+                "summary": "Describe the API key used for this request",
+                "operationId": "422840a0a8ef591735686035ccf52253",
+                "responses": {
+                    "200": {
+                        "description": "The key",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "required": [
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "data": {
+                                            "required": [
+                                                "id",
+                                                "kind",
+                                                "name",
+                                                "prefix",
+                                                "client",
+                                                "connected_url",
+                                                "website",
+                                                "scopes",
+                                                "all_indexes",
+                                                "search_index_ids",
+                                                "expires_at",
+                                                "created_at"
+                                            ],
+                                            "properties": {
+                                                "id": {
+                                                    "type": "string",
+                                                    "format": "uuid"
+                                                },
+                                                "kind": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "key",
+                                                        "connection"
+                                                    ]
+                                                },
+                                                "name": {
+                                                    "type": "string"
+                                                },
+                                                "prefix": {
+                                                    "description": "Null for a connection",
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ],
+                                                    "example": "ifk_3hT9aQ2x"
+                                                },
+                                                "client": {
+                                                    "description": "The connected app; null for a key",
+                                                    "properties": {
+                                                        "client_id": {
+                                                            "type": "string"
+                                                        },
+                                                        "name": {
+                                                            "type": "string"
+                                                        }
+                                                    },
+                                                    "type": [
+                                                        "object",
+                                                        "null"
+                                                    ]
+                                                },
+                                                "connected_url": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ],
+                                                    "example": "https://shop.example.com"
+                                                },
+                                                "website": {
+                                                    "properties": {
+                                                        "id": {
+                                                            "type": "string",
+                                                            "format": "uuid"
+                                                        },
+                                                        "name": {
+                                                            "type": "string"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "scopes": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "indexes:read",
+                                                            "indexes:manage",
+                                                            "products:read",
+                                                            "products:write",
+                                                            "products:delete",
+                                                            "analytics:read",
+                                                            "orders:write"
+                                                        ]
+                                                    }
+                                                },
+                                                "all_indexes": {
+                                                    "type": "boolean"
+                                                },
+                                                "search_index_ids": {
+                                                    "description": "Empty when all_indexes is true",
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string",
+                                                        "format": "uuid"
+                                                    }
+                                                },
+                                                "expires_at": {
+                                                    "description": "Null for a key that never expires, and for a connection (connections do not expire)",
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ],
+                                                    "format": "date-time"
+                                                },
+                                                "created_at": {
+                                                    "type": "string",
+                                                    "format": "date-time"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "invalid_api_key, api_key_revoked or api_key_expired"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/integration/v1/search-indices/{index}": {
+            "get": {
+                "tags": [
+                    "Integration API"
+                ],
+                "summary": "Get a search index",
+                "description": "Same request and response as `GET /api/v1/search-indices/{index}`. Show a search index and its field schema.",
+                "operationId": "integration_showSearchIndex",
+                "parameters": [
+                    {
+                        "name": "index",
+                        "in": "path",
+                        "description": "Search index UUID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The search index",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "required": [
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/SearchIndexResource"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Search index not found"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/integration/v1/search-indices/{index}/analytics": {
+            "get": {
+                "tags": [
+                    "Integration API"
+                ],
+                "summary": "Search analytics of one index",
+                "description": "The search analytics dashboard payload of the index: summary KPIs with the previous period, search volume and latency series, interface breakdown, top popular and zero-result queries, trending queries, merchandising rule impressions and semantic search (null when it is off and has nothing to report). Same body as `GET /api/v1/dashboards/search-analytics`. Needs the `analytics:read` scope.",
+                "operationId": "getIntegrationSearchIndexAnalytics",
+                "parameters": [
+                    {
+                        "name": "index",
+                        "in": "path",
+                        "description": "UUID of the search index",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "days",
+                        "in": "query",
+                        "description": "Lookback window in days. Default 7, max 30 (raw event retention).",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 7,
+                            "maximum": 30,
+                            "minimum": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Dashboard payload"
+                    },
+                    "401": {
+                        "description": "invalid_api_key, api_key_revoked or api_key_expired"
+                    },
+                    "403": {
+                        "description": "insufficient_scope (analytics:read)"
+                    },
+                    "404": {
+                        "description": "not_found: no such index, or outside the key's website or index grant"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/integration/v1/search-indices/{index}/campaign-page": {
+            "put": {
+                "tags": [
+                    "Integration API"
+                ],
+                "summary": "Set the address campaign links are built from",
+                "operationId": "bb30f424c1ce5e5cf2959c78a548c3c9",
+                "parameters": [
+                    {
+                        "name": "index",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Saved"
+                    },
+                    "403": {
+                        "description": "The key lacks indexes:manage"
+                    },
+                    "404": {
+                        "description": "Not an index this key covers"
+                    },
+                    "409": {
+                        "description": "The index is being created or deleted"
+                    },
+                    "422": {
+                        "description": "Not a full https address with {name} at most once"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/integration/v1/search-indices/{index}/default-filters": {
+            "post": {
+                "tags": [
+                    "Integration"
+                ],
+                "summary": "Fill the Filters tab of an API-sourced index from candidates",
+                "description": "Once the catalogue is in. The candidates come in the order the client wants them, with names in the shop's language; instafind leaves out those shoppers could not use (no value, one value nearly every product has, an attribute with a value per product) and fills the sidebar (8) and the search panel (4). Search behaviours are not changed. Does nothing once the Filters tab was saved (`already_set`). Ask again later after `no_products` (none searchable yet), `not_ready` (products still being made searchable, or written in the last minute) or `nothing_to_show` (no candidate worth showing; nothing is saved). At most 50 candidates. Needs the `indexes:manage` scope.",
+                "operationId": "645a6e0d7b1610568b45072dd654e77a",
+                "parameters": [
+                    {
+                        "name": "index",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "filters"
+                                ],
+                                "properties": {
+                                    "filters": {
+                                        "type": "array",
+                                        "items": {
+                                            "required": [
+                                                "field_id"
+                                            ],
+                                            "properties": {
+                                                "field_id": {
+                                                    "type": "string",
+                                                    "example": "attr_color"
+                                                },
+                                                "label": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ],
+                                                    "example": "Χρώμα"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "maxItems": 50
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Filled, or why not",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "applied": {
+                                                    "type": "boolean"
+                                                },
+                                                "reason": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ],
+                                                    "enum": [
+                                                        "already_set",
+                                                        "no_products",
+                                                        "not_ready",
+                                                        "nothing_to_show"
+                                                    ]
+                                                },
+                                                "sidebar": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string"
+                                                    }
+                                                },
+                                                "modal": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "insufficient_scope (indexes:manage)"
+                    },
+                    "404": {
+                        "description": "not_found: no such index, or outside the key's website or index grant"
+                    },
+                    "409": {
+                        "description": "index_not_api_sourced, or index_not_editable while the index is created or deleted"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/integration/v1/search-indices/{index}/default-template": {
+            "post": {
+                "tags": [
+                    "Integration"
+                ],
+                "summary": "Fill the Template tab of an API-sourced index with the client's templates",
+                "description": "Once, when the client is set up. `results` is the product card of the full results page, `live_search` the row of the live search; each is widget template HTML with `{{field_id}}` placeholders and an optional `<style>` block, stored as a code-mode template the owner edits in the Template Builder. A view already set up there (a chosen layout or code) is left alone (`already_set`); a view not sent stays as it is (`not_sent`). Needs the `indexes:manage` scope.",
+                "operationId": "824116b8536c256f505cfca103bfd338",
+                "parameters": [
+                    {
+                        "name": "index",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "results": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "maxLength": 65535
+                                    },
+                                    "live_search": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "maxLength": 65535
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "What became of each template",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "results": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "applied",
+                                                        "already_set",
+                                                        "not_sent"
+                                                    ]
+                                                },
+                                                "live_search": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "applied",
+                                                        "already_set",
+                                                        "not_sent"
+                                                    ]
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "insufficient_scope (indexes:manage)"
+                    },
+                    "404": {
+                        "description": "not_found: no such index, or outside the key's website or index grant"
+                    },
+                    "409": {
+                        "description": "index_not_api_sourced, or index_not_editable while the index is created or deleted"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/integration/v1/search-indices/{index}/products": {
+            "post": {
+                "tags": [
+                    "Client Product Writes"
+                ],
+                "summary": "Bulk upsert products into a search index",
+                "operationId": "c3e1b3c9f5ff32fa123f5e797b4c1b83",
+                "parameters": [
+                    {
+                        "name": "index",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "refresh",
+                        "in": "query",
+                        "description": "Search-visibility policy. Omit (default) to return as soon as writes are durable; search reflects them within ~15s. `wait_for` blocks the response until the next refresh tick (≤15s) — use for read-after-write flows or on the final batch of a bulk import. `immediate` forces an ES refresh for sub-second visibility (more expensive — use sparingly).",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "wait_for",
+                                "immediate"
+                            ]
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "products"
+                                ],
+                                "properties": {
+                                    "products": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object"
+                                        },
+                                        "maxItems": 500,
+                                        "minItems": 1
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Per-item results",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProductWriteResult"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "insufficient_scope: the key lacks products:write"
+                    },
+                    "404": {
+                        "description": "index_not_found — the index does not exist, is not yours, or is not active. All three answer alike so existence cannot be probed"
+                    },
+                    "409": {
+                        "description": "index_not_ready (the physical index is missing), index_locked or write_conflict — all retryable, see Retry-After"
+                    },
+                    "422": {
+                        "description": "duplicate_product_ids — the same product id appears more than once; nothing was stored"
+                    },
+                    "429": {
+                        "description": "Rate limited"
+                    },
+                    "503": {
+                        "description": "durable_storage_unavailable — the write was not accepted (API-sourced only)"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/integration/v1/search-indices/{index}/products/{productId}": {
+            "put": {
+                "tags": [
+                    "Client Product Writes"
+                ],
+                "summary": "Upsert a single product",
+                "operationId": "8acafb511b0e359956d3140955963e8e",
+                "parameters": [
+                    {
+                        "name": "index",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "productId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "refresh",
+                        "in": "query",
+                        "description": "Search-visibility policy. See POST endpoint for full semantics.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "wait_for",
+                                "immediate"
+                            ]
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Upserted; same body shape as the bulk endpoint",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProductWriteResult"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "insufficient_scope: the key lacks products:write"
+                    },
+                    "404": {
+                        "description": "index_not_found — the index does not exist, is not yours, or is not active"
+                    },
+                    "409": {
+                        "description": "index_not_ready, index_locked or write_conflict — all retryable, see Retry-After"
+                    },
+                    "422": {
+                        "description": "invalid_product_id — empty, non-scalar, over 255 characters or over 512 bytes"
+                    },
+                    "429": {
+                        "description": "Rate limited"
+                    },
+                    "503": {
+                        "description": "durable_storage_unavailable — the write was not accepted (API-sourced only)"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Client Product Writes"
+                ],
+                "summary": "Delete a single product (idempotent)",
+                "operationId": "ea16021c8ac7cebbae43b6ae1474f9e7",
+                "parameters": [
+                    {
+                        "name": "index",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "productId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "refresh",
+                        "in": "query",
+                        "description": "Search-visibility policy. See POST endpoint for full semantics.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "wait_for",
+                                "immediate"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Deleted (or already absent). On an API-sourced index the delete is recorded durably even for a product that was never written, so a write still in flight cannot resurrect it"
+                    },
+                    "403": {
+                        "description": "insufficient_scope: the key lacks products:delete"
+                    },
+                    "404": {
+                        "description": "index_not_found — the index does not exist, is not yours, or is not active"
+                    },
+                    "409": {
+                        "description": "Index not ready or busy; retryable"
+                    },
+                    "422": {
+                        "description": "invalid_product_id — empty, over 255 characters or over 512 bytes"
+                    },
+                    "429": {
+                        "description": "Rate limited"
+                    },
+                    "503": {
+                        "description": "durable_storage_unavailable (API-sourced only), or backend_unavailable — the search backend failed or refused the delete (feed-sourced); retryable, see Retry-After"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/integration/v1/search-indices/{index}/stored-products": {
+            "get": {
+                "tags": [
+                    "Integration API"
+                ],
+                "summary": "List stored products",
+                "description": "Same request and response as `GET /api/v1/search-indices/{index}/stored-products`. A page of the products held in the durable store for an API-sourced index, newest write first. Deleted products are not listed.",
+                "operationId": "integration_listStoredProducts",
+                "parameters": [
+                    {
+                        "name": "index",
+                        "in": "path",
+                        "description": "UUID id of the search index",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "Page number (default 1)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1,
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "description": "Items per page (default 50, max 100)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 50,
+                            "maximum": 100,
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "description": "Accent-insensitive match on product id or title",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 255
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A page of stored products",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/StoredProduct"
+                                            }
+                                        },
+                                        "meta": {
+                                            "properties": {
+                                                "current_page": {
+                                                    "type": "integer",
+                                                    "example": 1
+                                                },
+                                                "per_page": {
+                                                    "type": "integer",
+                                                    "example": 50
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "example": 1204
+                                                },
+                                                "total_pages": {
+                                                    "type": "integer",
+                                                    "example": 25
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "404": {
+                        "description": "Search index not found, or not accessible to this user"
+                    },
+                    "409": {
+                        "description": "The index is feed-sourced; browse its feed versions instead"
+                    },
+                    "422": {
+                        "description": "Invalid pagination parameters, or a page beyond the listing's depth limit"
+                    },
+                    "503": {
+                        "description": "The durable store could not be read"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/integration/v1/search-indices/{index}/stored-products/{productUid}": {
+            "get": {
+                "tags": [
+                    "Integration API"
+                ],
+                "summary": "Get one stored product",
+                "description": "Same request and response as `GET /api/v1/search-indices/{index}/stored-products/{productUid}`. The stored copy of a single product, as the client sent it and as it was processed.",
+                "operationId": "integration_showStoredProduct",
+                "parameters": [
+                    {
+                        "name": "index",
+                        "in": "path",
+                        "description": "UUID id of the search index",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "productUid",
+                        "in": "path",
+                        "description": "The product's identifier, as the client supplied it",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The stored product",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/StoredProduct"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "404": {
+                        "description": "Search index or product not found"
+                    },
+                    "409": {
+                        "description": "The index is feed-sourced; browse its feed versions instead"
+                    },
+                    "503": {
+                        "description": "The durable store could not be read"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/integration/v1/search-indices/{index}/summary": {
+            "get": {
+                "tags": [
+                    "Integration API"
+                ],
+                "summary": "What is set up for one index",
+                "description": "Counts of what is set up for the index in the app: merchandising rules (active now, and all), campaigns (live now, and all), search box content blocks (active, and all), synonym rules and hidden searches. Needs the `indexes:read` scope.",
+                "operationId": "getIntegrationSearchIndexSummary",
+                "parameters": [
+                    {
+                        "name": "index",
+                        "in": "path",
+                        "description": "UUID of the search index",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Counts",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "search_index_id": {
+                                            "type": "string",
+                                            "format": "uuid"
+                                        },
+                                        "merchandising_rules": {
+                                            "properties": {
+                                                "active": {
+                                                    "type": "integer"
+                                                },
+                                                "total": {
+                                                    "type": "integer"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "campaigns": {
+                                            "properties": {
+                                                "live": {
+                                                    "type": "integer"
+                                                },
+                                                "total": {
+                                                    "type": "integer"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "content_snippets": {
+                                            "properties": {
+                                                "active": {
+                                                    "type": "integer"
+                                                },
+                                                "total": {
+                                                    "type": "integer"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "synonyms": {
+                                            "type": "integer"
+                                        },
+                                        "hidden_searches": {
+                                            "type": "integer"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "invalid_api_key, api_key_revoked or api_key_expired"
+                    },
+                    "403": {
+                        "description": "insufficient_scope (indexes:read)"
+                    },
+                    "404": {
+                        "description": "not_found: no such index, or outside the key's website or index grant"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/integration/v1/search-indices/{searchIndex}/field-definitions": {
+            "get": {
+                "tags": [
+                    "Integration API"
+                ],
+                "summary": "List field definitions",
+                "description": "Same request and response as `GET /api/v1/search-indices/{searchIndex}/field-definitions`. Returns all field definitions for the specified search index.",
+                "operationId": "integration_listFieldDefinitions",
+                "parameters": [
+                    {
+                        "name": "searchIndex",
+                        "in": "path",
+                        "description": "Search index ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of field definitions",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FieldDefinitionCollection"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Integration API"
+                ],
+                "summary": "Create custom field",
+                "description": "Same request and response as `POST /api/v1/search-indices/{searchIndex}/field-definitions`. Creates a new custom field for the specified search index.",
+                "operationId": "integration_createCustomField",
+                "parameters": [
+                    {
+                        "name": "searchIndex",
+                        "in": "path",
+                        "description": "Search index ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "field_id",
+                                    "type"
+                                ],
+                                "properties": {
+                                    "field_id": {
+                                        "type": "string",
+                                        "example": "custom_field"
+                                    },
+                                    "type": {
+                                        "type": "string",
+                                        "example": "attribute"
+                                    },
+                                    "token": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "example": "BRAND"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Custom field created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Custom field created successfully"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/FieldDefinitionResource"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "409": {
+                        "description": "API-sourced index: not editable in its current lifecycle state, or the edit requires a new index"
+                    },
+                    "422": {
+                        "description": "Validation error, or an edit that would break the identifier invariants"
+                    },
+                    "503": {
+                        "description": "API-sourced index: the search backend refused the new field; nothing was saved"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/integration/v1/search-indices/{searchIndex}/field-definitions/{fieldId}": {
+            "put": {
+                "tags": [
+                    "Integration API"
+                ],
+                "summary": "Update field definition",
+                "description": "Same request and response as `PUT /api/v1/search-indices/{searchIndex}/field-definitions/{fieldId}`. Updates an existing field definition.",
+                "operationId": "integration_updateFieldDefinition",
+                "parameters": [
+                    {
+                        "name": "searchIndex",
+                        "in": "path",
+                        "description": "Search index ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "fieldId",
+                        "in": "path",
+                        "description": "Field ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "type": {
+                                        "type": "string",
+                                        "example": "title"
+                                    },
+                                    "token": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "example": "NAME"
+                                    },
+                                    "split_delimiter": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "example": ","
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Field definition updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Field definition updated successfully"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/FieldDefinitionResource"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Field not found"
+                    },
+                    "409": {
+                        "description": "API-sourced index: not editable in its current lifecycle state, or a type change that requires a new index"
+                    },
+                    "422": {
+                        "description": "Validation error, or an edit that would break the identifier invariants"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/integration/v1/search-indices/{searchIndex}/filter-value-trees/{fieldId}": {
+            "put": {
+                "tags": [
+                    "Merchandising Rules"
+                ],
+                "summary": "Replace what the values of a filter stand for",
+                "description": "The names and parents of the filter's values, such as a shop's categories, when the filter holds ids. Merchandising rules then offer them by name and can cover everything below a value. An empty `nodes` removes the tree. Needs the `indexes:manage` scope.",
+                "operationId": "0dda3346d5f3338e02d36f8dafe10972",
+                "parameters": [
+                    {
+                        "name": "searchIndex",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "fieldId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "nodes"
+                                ],
+                                "properties": {
+                                    "nodes": {
+                                        "type": "array",
+                                        "items": {
+                                            "required": [
+                                                "value",
+                                                "label"
+                                            ],
+                                            "properties": {
+                                                "value": {
+                                                    "description": "The value as the filter holds it",
+                                                    "type": "string"
+                                                },
+                                                "label": {
+                                                    "type": "string"
+                                                },
+                                                "parent": {
+                                                    "description": "The value of its parent",
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ]
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "maxItems": 5000
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Replaced"
+                    },
+                    "404": {
+                        "description": "No such index"
+                    },
+                    "409": {
+                        "description": "index_not_editable: the index is being created or deleted"
+                    },
+                    "422": {
+                        "description": "Invalid nodes, or the field is not a filter of this index"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/integration/v1/search-indices/{searchIndex}/search-behaviors": {
+            "get": {
+                "tags": [
+                    "Integration API"
+                ],
+                "summary": "List search behaviors",
+                "description": "Same request and response as `GET /api/v1/search-indices/{searchIndex}/search-behaviors`. Returns the search behavior of every field. An index has one behavior per field, used by every search.",
+                "operationId": "integration_listSearchBehaviors",
+                "parameters": [
+                    {
+                        "name": "searchIndex",
+                        "in": "path",
+                        "description": "Search index ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of search behaviors",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/SearchBehaviorCollection"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Integration API"
+                ],
+                "summary": "Update search behaviors",
+                "description": "Same request and response as `PUT /api/v1/search-indices/{searchIndex}/search-behaviors`. Replaces the search behaviors of the index. Must include a behavior for every field.",
+                "operationId": "integration_updateSearchBehaviors",
+                "parameters": [
+                    {
+                        "name": "searchIndex",
+                        "in": "path",
+                        "description": "Search index ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "behaviors"
+                                ],
+                                "properties": {
+                                    "behaviors": {
+                                        "description": "Behaviors keyed by field_id",
+                                        "type": "object",
+                                        "additionalProperties": {
+                                            "$ref": "#/components/schemas/SearchBehaviorResource"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Search behaviors updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Search behaviors updated successfully"
+                                        },
+                                        "data": {
+                                            "$ref": "#/components/schemas/SearchBehaviorCollection"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/integration/v1/websites/{website}": {
+            "get": {
+                "tags": [
+                    "Integration API"
+                ],
+                "summary": "Get website details",
+                "description": "Same request and response as `GET /api/v1/websites/{website}`. Returns details of a specific website.",
+                "operationId": "integration_ca874b9f0f59bddbc3d30925e657a2fb",
+                "parameters": [
+                    {
+                        "name": "website",
+                        "in": "path",
+                        "description": "Website ID",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "include",
+                        "in": "query",
+                        "description": "Comma-separated list of relationships to include (organization)",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "organization"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Website details",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/WebsiteResource"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Website not found"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/integration/v1/websites/{website}/orders": {
+            "post": {
+                "tags": [
+                    "Integration API"
+                ],
+                "summary": "Send a shop's orders",
+                "description": "Creates or updates up to 100 orders. The body must be JSON. Do not send customer details: `reference` must be a random value you generate and keep on the order, not the order number. To tell one customer's orders from another's, send `customer_key`: an HMAC-SHA256 in lowercase hex of something stable about the customer (such as the normalised email address), made with a secret that stays in the shop. instafind never gets the secret, so it cannot work out who the customer is. Left out, the stored key stays; null (or an empty string) removes it. A key erased through the DELETE customers route is dropped from every order placed before the erasure, whenever that order is sent again. Sending an order again replaces it, unless the stored version has a later `updated_at`, and then the order is reported as `stale`. One rejected order does not fail the others. A line has search credit when it carries both `search_query` and `search_index_id`; an unusable value, or an index outside this website, drops the credit and keeps the sale. Needs the `orders:write` scope on a key that covers all of the website's indexes.",
+                "operationId": "storeIntegrationShopOrders",
+                "parameters": [
+                    {
+                        "name": "website",
+                        "in": "path",
+                        "description": "UUID of the website",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "orders"
+                                ],
+                                "properties": {
+                                    "orders": {
+                                        "type": "array",
+                                        "items": {
+                                            "required": [
+                                                "reference",
+                                                "status",
+                                                "currency",
+                                                "placed_at",
+                                                "updated_at"
+                                            ],
+                                            "properties": {
+                                                "reference": {
+                                                    "type": "string",
+                                                    "maxLength": 64
+                                                },
+                                                "customer_key": {
+                                                    "description": "HMAC-SHA256 of the customer, made with a secret only the shop has. Any other format rejects the order",
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ],
+                                                    "pattern": "^[a-f0-9]{64}$"
+                                                },
+                                                "status": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "paid",
+                                                        "refunded",
+                                                        "cancelled"
+                                                    ]
+                                                },
+                                                "currency": {
+                                                    "type": "string",
+                                                    "example": "EUR"
+                                                },
+                                                "placed_at": {
+                                                    "type": "string",
+                                                    "format": "date-time",
+                                                    "example": "2026-11-05T10:15:00+00:00"
+                                                },
+                                                "updated_at": {
+                                                    "type": "string",
+                                                    "format": "date-time",
+                                                    "example": "2026-11-05T10:15:00+00:00"
+                                                },
+                                                "lines": {
+                                                    "description": "Not empty, unless `status` is `cancelled`. Empty, null or left out on a cancelled order, the lines already stored stay.",
+                                                    "type": [
+                                                        "array",
+                                                        "null"
+                                                    ],
+                                                    "items": {
+                                                        "required": [
+                                                            "product_id",
+                                                            "name",
+                                                            "quantity",
+                                                            "net_total",
+                                                            "tax_total"
+                                                        ],
+                                                        "properties": {
+                                                            "product_id": {
+                                                                "type": "string"
+                                                            },
+                                                            "variation_id": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "name": {
+                                                                "type": "string"
+                                                            },
+                                                            "quantity": {
+                                                                "type": "number"
+                                                            },
+                                                            "net_total": {
+                                                                "description": "Line total without tax, after discounts",
+                                                                "type": "number"
+                                                            },
+                                                            "tax_total": {
+                                                                "type": "number"
+                                                            },
+                                                            "refunded_quantity": {
+                                                                "type": [
+                                                                    "number",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "refunded_total": {
+                                                                "description": "Refunded amount with tax",
+                                                                "type": [
+                                                                    "number",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "search_query": {
+                                                                "description": "Cut to 120 characters",
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ]
+                                                            },
+                                                            "search_index_id": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "null"
+                                                                ],
+                                                                "format": "uuid"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    },
+                                                    "maxItems": 500
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "maxItems": 100,
+                                        "minItems": 1
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Per-order results",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "accepted": {
+                                            "type": "integer"
+                                        },
+                                        "stale": {
+                                            "description": "A later version is already stored; nothing changed",
+                                            "type": "integer"
+                                        },
+                                        "failed": {
+                                            "type": "integer"
+                                        },
+                                        "results": {
+                                            "description": "In request order: {reference, status: ok|stale|error, reason?}",
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "invalid_api_key, api_key_revoked or api_key_expired"
+                    },
+                    "403": {
+                        "description": "insufficient_scope (orders:write), or the key does not cover all indexes"
+                    },
+                    "404": {
+                        "description": "not_found: no such website, or not the key's website"
+                    },
+                    "415": {
+                        "description": "The body is not JSON"
+                    },
+                    "422": {
+                        "description": "The request has no valid `orders` list"
+                    },
+                    "429": {
+                        "description": "Too many requests"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/integration/v1/websites/{website}/orders/customers/{customerKey}": {
+            "delete": {
+                "tags": [
+                    "Integration API"
+                ],
+                "summary": "Forget one customer's orders",
+                "description": "Removes the `customer_key` from every order of this website that carries it, so those orders can no longer be told apart from anyone else's. The orders themselves stay in the revenue reports. instafind remembers the erasure for as long as it keeps orders, and drops the key from any order placed before it that is sent again; orders placed later keep it. Sending the same key again finds nothing and still answers 200. Needs the `orders:write` scope on a key that covers all of the website's indexes.",
+                "operationId": "forgetIntegrationShopOrderCustomer",
+                "parameters": [
+                    {
+                        "name": "website",
+                        "in": "path",
+                        "description": "UUID of the website",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "customerKey",
+                        "in": "path",
+                        "description": "The `customer_key` the orders were sent with: 64 lowercase hex characters",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Done",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "forgotten_orders": {
+                                            "description": "How many orders carried the key",
+                                            "type": "integer"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "invalid_api_key, api_key_revoked or api_key_expired"
+                    },
+                    "403": {
+                        "description": "insufficient_scope (orders:write), or the key does not cover all indexes"
+                    },
+                    "404": {
+                        "description": "not_found: no such website, not the key's website, or a customer key that is not 64 lowercase hex characters"
+                    },
+                    "429": {
+                        "description": "Too many requests"
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/integration/v1/websites/{website}/search-indices": {
+            "post": {
+                "tags": [
+                    "Integration API"
+                ],
+                "summary": "Create an API-sourced search index",
+                "description": "Same request and response as `POST /api/v1/websites/{website}/search-indices`. Creates a search index with no feed behind it: the schema is supplied here and products are written through the Client Product Write API. The index is searchable immediately via /api/public/v1/search?id={id} and returns no results until products are written. Creation is all-or-nothing — on any failure nothing is left behind and the request can be retried.",
+                "operationId": "integration_createApiSearchIndex",
+                "parameters": [
+                    {
+                        "name": "website",
+                        "in": "path",
+                        "description": "Website UUID (slugs are only unique per organization, so /api/v1 binds websites by id)",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "langcode",
+                                    "fields"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "description": "Display name; defaults to 'Index <id>'",
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "example": "Spring Catalog",
+                                        "maxLength": 255
+                                    },
+                                    "langcode": {
+                                        "description": "Language driving the analyzers; must be a supported index strategy",
+                                        "type": "string",
+                                        "example": "en"
+                                    },
+                                    "backend_type": {
+                                        "description": "Optional; elasticsearch is the only supported backend",
+                                        "type": "string",
+                                        "example": "elasticsearch",
+                                        "enum": [
+                                            "elasticsearch"
+                                        ]
+                                    },
+                                    "fields": {
+                                        "description": "The index schema. Exactly one field must have the type 'identifier' — it carries the product id used as the storage key, the document id and the delete key. Field types cannot be changed after creation.",
+                                        "type": "array",
+                                        "items": {
+                                            "required": [
+                                                "field_id",
+                                                "type"
+                                            ],
+                                            "properties": {
+                                                "field_id": {
+                                                    "description": "Lowercase key the documents use for this field",
+                                                    "type": "string",
+                                                    "example": "sku",
+                                                    "maxLength": 64
+                                                },
+                                                "type": {
+                                                    "description": "FieldType value, e.g. title, price, identifier",
+                                                    "type": "string",
+                                                    "example": "identifier"
+                                                },
+                                                "token": {
+                                                    "description": "Optional display-template token",
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ],
+                                                    "example": "SKU",
+                                                    "maxLength": 50
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "maxItems": 200,
+                                        "minItems": 1
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Index created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/SearchIndexResource"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated"
+                    },
+                    "403": {
+                        "description": "Forbidden — the user cannot manage indices on this website"
+                    },
+                    "404": {
+                        "description": "Website not found"
+                    },
+                    "409": {
+                        "description": "index_deleted_during_creation — a delete of the new index arrived before it was finished; the delete wins and the index is purged. Send a new create request if the index is still needed"
+                    },
+                    "422": {
+                        "description": "Validation error"
+                    },
+                    "503": {
+                        "description": "Either the durable product store is unavailable (`durable_storage_unavailable`), or creation failed and rolled back (`index_creation_failed`). Both leave nothing behind and carry Retry-After",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "error": {
+                                            "type": "string",
+                                            "example": "durable_storage_unavailable"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
+            }
+        },
+        "/api/public/v1/keywords": {
+            "get": {
+                "tags": [
+                    "Analytics"
+                ],
+                "summary": "Get popular keywords",
+                "description": "Returns the popular searches of the specified search index, for the widget, ranked by how many distinct visitors (IP addresses) searched them; `count` is that number. Phrases the merchant hid are left out. Searches that found nothing are not served here: they show what a shop lacks and what shoppers typed, so they are read only on the authenticated analytics pages.",
+                "operationId": "getKeywords",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "query",
+                        "description": "UUID id of the search index",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "mode",
+                        "in": "query",
+                        "description": "The keyword mode. Only `popular` is served.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "popular"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "display_mode",
+                        "in": "query",
+                        "description": "The widget display mode asking (modal, dropdown-mega, dropdown-list), whose own popular-searches settings apply.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "modal",
+                                "dropdown-mega",
+                                "dropdown-list"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of popular keywords.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "keywords": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "A required parameter is missing or invalid",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "id is required"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/public/v1/search": {
+            "get": {
+                "tags": [
+                    "Default"
+                ],
+                "summary": "Search",
+                "description": "Searches an index. The one text-search endpoint, for the widget's dropdown and results page and for API callers; the full contract is in docs/API_DOCUMENTATION.md.",
+                "operationId": "128cb3df97d9a029c31b4d22c4f9bc85",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "query",
+                        "description": "The search index id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "context",
+                        "in": "query",
+                        "description": "Where the results are shown. dropdown: the widget's live views; promote rules shown in the dropdown apply, and no rule impressions are recorded. results: the results page, category pages and API callers.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "results",
+                            "enum": [
+                                "dropdown",
+                                "results"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "q",
+                        "in": "query",
+                        "description": "The search words. Without them, a request that filters, sorts or says browse=1 lists the matching products (browse); otherwise it is a health check.",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Maximum number of results to return. 0 returns the aggregations only, and is not recorded as a search.",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 7,
+                            "maximum": 100,
+                            "minimum": 0
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "The page of `limit` results, from 1. Pages end at the 10,000th product.",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1,
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "facet_size",
+                        "in": "query",
+                        "description": "Values returned per facet. Selected values outside them are appended. facet_size[<field>]=<n> sets one facet's size, next to the scalar (or facet_size[*]) for the others: facet_size=10&facet_size[category_ids]=500. All facets share 5,000 values. A size that is not a positive number, or names a field that is not a facet, is reported in applied.ignored.",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 50,
+                            "maximum": 1000,
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "facets",
+                        "in": "query",
+                        "description": "Comma-separated field ids to aggregate; all facets when absent. A range field listed keeps its min/max.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "attr_color"
+                        }
+                    },
+                    {
+                        "name": "facet_sort",
+                        "in": "query",
+                        "description": "count: most products first. key: A to Z (the first facet_size values by value, not the top values sorted).",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "count",
+                            "enum": [
+                                "count",
+                                "key"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "category_matches",
+                        "in": "query",
+                        "description": "Up to this many (1-10) categories whose name matches the words, answered as `category_matches`: `[{value, label, highlight, path, subtitle, count}]` (`subtitle`: the subtitle of the category filter, null without one), best first (more of the words matched, then more products). The category field is set per index (Search settings → Categories); without one the list is empty. Not on a browse.",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "maximum": 10,
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "description": "A field switched Sortable, by its id or as sorted (`<field>.keyword` for text). Anything else keeps the relevance order and is reported in applied.ignored; `_score` asks for relevance order.",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "order",
+                        "in": "query",
+                        "description": "Required with sort.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "asc",
+                                "desc"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "browse",
+                        "in": "query",
+                        "description": "With 1 and no q, lists every product (with any filters, sort and paging), not a health check.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "1"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "highlight",
+                        "in": "query",
+                        "description": "With 1, each hit whose title fields match the words carries `highlight.<field>`: the values with the match in <strong> tags. Off when the index turns highlighting off.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "0",
+                                "1",
+                                "true"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "ignore_detected[]",
+                        "in": "query",
+                        "description": "A value from `detected` the shopper removed, as <field>:<value>: this search does not recognise it and searches its words like any others. Repeat for several.",
+                        "required": false,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    {
+                        "name": "strict",
+                        "in": "query",
+                        "description": "With 1, a search that would ignore any filter or its sort is refused with 422 filters_not_applied instead of answering without it. The response always reports what was applied under `applied`.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "0",
+                                "1"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "merchandising",
+                        "in": "query",
+                        "description": "With 2 (or higher), the client labels sponsored filter values and products, so sponsored rules may apply. Otherwise they are left out.",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 0
+                        }
+                    },
+                    {
+                        "name": "sid",
+                        "in": "query",
+                        "description": "The visitor's session id, for search analytics. Never a filter.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 255
+                        }
+                    },
+                    {
+                        "name": "filters",
+                        "in": "query",
+                        "description": "Any other parameter is a filter on a field: `<field>[]=<value>` (repeat for several values), `<field>=<min>-<max>` on a range field. What could not be applied is reported in `applied.ignored`.",
+                        "required": false,
+                        "style": "form",
+                        "explode": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "oneOf": [
+                                    {
+                                        "type": "string"
+                                    },
+                                    {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PublicSearchResponse"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Missing id, or the search failed: `results.error`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "No such index, or one that is not serving search: `index_not_found`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "context is not dropdown or results (`invalid_context`), or strict=1 and some filters or the sort cannot be applied (`filters_not_applied`)",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "error": {
+                                            "type": "string",
+                                            "example": "filters_not_applied"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "ignored": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "param": {
+                                                        "type": "string",
+                                                        "example": "attr_colour"
+                                                    },
+                                                    "reason": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "unknown_field",
+                                                            "not_a_facet",
+                                                            "not_filterable_type",
+                                                            "invalid_value",
+                                                            "malformed_range",
+                                                            "not_sortable"
+                                                        ]
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/public/v1/search/campaign": {
+            "get": {
+                "tags": [
+                    "Default"
+                ],
+                "summary": "A campaign page",
+                "description": "What a campaign link shows now: its state and content, and its products with filters, sorting and paging as on /api/public/v1/search. A draft, a deleted campaign and a mistyped name answer alike. The full contract is in docs/API_DOCUMENTATION.md.",
+                "operationId": "5647d2d3787b60595e952d2b8b0bd3e4",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "query",
+                        "description": "The search index id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "name",
+                        "in": "query",
+                        "description": "The campaign, compared in lowercase.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "example": "enewsletter_black_friday"
+                        }
+                    },
+                    {
+                        "name": "preview",
+                        "in": "query",
+                        "description": "A signed preview token from the editor: shows a draft as if live, past the cache.",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "picks_ignore[]",
+                        "in": "query",
+                        "description": "Filter fields of this request that the owner's hand-picked products need not pass.",
+                        "required": false,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Products per page, as on /api/public/v1/search.",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 7,
+                            "maximum": 100,
+                            "minimum": 0
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "As on /api/public/v1/search.",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1,
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "description": "As on /api/public/v1/search.",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "order",
+                        "in": "query",
+                        "description": "Required with sort.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "asc",
+                                "desc"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "facets",
+                        "in": "query",
+                        "description": "As on /api/public/v1/search.",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "facet_size",
+                        "in": "query",
+                        "description": "As on /api/public/v1/search, also facet_size[<field>].",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 50,
+                            "maximum": 1000,
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "facet_sort",
+                        "in": "query",
+                        "description": "As on /api/public/v1/search.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "count",
+                            "enum": [
+                                "count",
+                                "key"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "strict",
+                        "in": "query",
+                        "description": "With 1, refused (422 filters_not_applied) when a filter or the sort cannot be applied.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "0",
+                                "1"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "merchandising",
+                        "in": "query",
+                        "description": "As on /api/public/v1/search: 2 when the client labels sponsored products.",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 0
+                        }
+                    },
+                    {
+                        "name": "sid",
+                        "in": "query",
+                        "description": "The visitor's session id, so rule reports count shoppers. Never a filter.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 255
+                        }
+                    },
+                    {
+                        "name": "filters",
+                        "in": "query",
+                        "description": "Any other parameter is a filter, as on /api/public/v1/search.",
+                        "required": false,
+                        "style": "form",
+                        "explode": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "oneOf": [
+                                    {
+                                        "type": "string"
+                                    },
+                                    {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The campaign and its products; with campaign.redirect set, no products"
+                    },
+                    "400": {
+                        "description": "Missing id, or the search failed"
+                    },
+                    "404": {
+                        "description": "Unknown index, or one that is not serving search: `index_not_found`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Missing name, or a strict caller whose filters can't apply"
+                    },
+                    "429": {
+                        "description": "Too many requests"
+                    }
+                }
+            }
+        },
+        "/api/public/v1/search/campaign/event": {
+            "post": {
+                "tags": [
+                    "Default"
+                ],
+                "summary": "Count a view or click of a campaign page",
+                "description": "Form-encoded, so a browser beacon needs no preflight. Send one view per campaign per browser session, and a click for a product link, banner or tile, from the browser: a server-side call would count crawlers. Previews send none. Always 204, whatever it is sent.",
+                "operationId": "f05b69941994b1fa8a2e97bb860063ce",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "required": [
+                                    "id",
+                                    "name",
+                                    "event"
+                                ],
+                                "properties": {
+                                    "id": {
+                                        "type": "string",
+                                        "format": "uuid"
+                                    },
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "event": {
+                                        "type": "string",
+                                        "enum": [
+                                            "view",
+                                            "click"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "204": {
+                        "description": "Received, or dropped"
+                    },
+                    "429": {
+                        "description": "Too many requests"
+                    }
+                }
+            }
+        },
+        "/api/public/v1/search/facet-config": {
+            "get": {
+                "tags": [
+                    "Public Search"
+                ],
+                "summary": "Get public facet configuration",
+                "description": "Returns facet display configuration and rewrites for the search widget. No authentication required.",
+                "operationId": "getPublicFacetConfig",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "query",
+                        "description": "UUID id of the search index",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Facet configuration"
+                    }
+                }
+            }
+        },
+        "/api/public/v1/search/image": {
+            "get": {
+                "tags": [
+                    "Search"
+                ],
+                "summary": "Visual similarity search with filtering",
+                "description": "Find visually similar products using a 3rd party image search service, then filter results by facets (manufacturer, price ranges, etc.) and return full product details from Elasticsearch. The original searched product is always included as the first result, regardless of filters, to maintain search context.",
+                "operationId": "e331a1dd377d875d75cefd4ab72cf8bf",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "query",
+                        "description": "Elastic configuration ID hash",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "q",
+                        "in": "query",
+                        "description": "Search query to find similar products for",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Maximum number of similar products to return",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 10,
+                            "maximum": 100,
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "offset",
+                        "in": "query",
+                        "description": "Offset for pagination (at most 1000)",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 0,
+                            "minimum": 0
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "description": "A field switched Sortable on the full results page (e.g. price); anything else keeps the similarity order",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "order",
+                        "in": "query",
+                        "description": "Sort order direction",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "asc",
+                                "desc"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "manufacturer_name[]",
+                        "in": "query",
+                        "description": "Filter by manufacturer names",
+                        "required": false,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    {
+                        "name": "price_r[]",
+                        "in": "query",
+                        "description": "Price range filter in format min-max (e.g., price_r[]=10-50). The exact parameter name depends on your index configuration.",
+                        "required": false,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The similar products, or, for a disabled index, an empty list with `reason`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "oneOf": [
+                                        {
+                                            "required": [
+                                                "results"
+                                            ],
+                                            "properties": {
+                                                "results": {
+                                                    "required": [
+                                                        "hits",
+                                                        "aggregations"
+                                                    ],
+                                                    "properties": {
+                                                        "hits": {
+                                                            "required": [
+                                                                "hits"
+                                                            ],
+                                                            "properties": {
+                                                                "hits": {
+                                                                    "type": "array",
+                                                                    "items": {
+                                                                        "required": [
+                                                                            "_source"
+                                                                        ],
+                                                                        "properties": {
+                                                                            "_source": {
+                                                                                "type": "object"
+                                                                            }
+                                                                        },
+                                                                        "type": "object"
+                                                                    }
+                                                                }
+                                                            },
+                                                            "type": "object"
+                                                        },
+                                                        "aggregations": {
+                                                            "description": "Facet counts and `min_`/`max_<field>` per range field, as on /api/public/v1/search.",
+                                                            "type": "object"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        {
+                                            "required": [
+                                                "results",
+                                                "total",
+                                                "reason"
+                                            ],
+                                            "properties": {
+                                                "results": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object"
+                                                    },
+                                                    "maxItems": 0
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "enum": [
+                                                        0
+                                                    ]
+                                                },
+                                                "reason": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "index_disabled"
+                                                    ]
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request"
+                    },
+                    "404": {
+                        "description": "No such index, or one that is not serving search: `index_not_found`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error"
+                    }
+                }
+            }
+        },
+        "/api/public/v1/search/product-suggestions": {
+            "get": {
+                "tags": [
+                    "Default"
+                ],
+                "summary": "Products to suggest next to one or more products",
+                "description": "The owner's picks first, then the products bought with them in the shop's orders, then (with fill=category) the best sellers of their category, as products in the /api/public/v1/search format and in that order; each hit has suggestion_source. Colours of one item count as one product. Empty when suggestions are off for the index. Other query parameters filter as on /api/public/v1/search. The full contract is in docs/API_DOCUMENTATION.md.",
+                "operationId": "656b8d4545c08efa095e1863b671c5ba",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "query",
+                        "description": "The search index id.",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "product",
+                        "in": "query",
+                        "description": "The product's id in the index, or several separated by commas (a cart, at most 20).",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "limit",
+                        "in": "query",
+                        "description": "Products to return.",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 4,
+                            "maximum": 12,
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "fill",
+                        "in": "query",
+                        "description": "category: fill a short list with the best sellers of the product's category; none: only picks and orders.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "category",
+                            "enum": [
+                                "category",
+                                "none"
+                            ]
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "results, as on /api/public/v1/search; each hit has suggestion_source: manual, orders or category"
+                    },
+                    "400": {
+                        "description": "Missing id, or the search failed"
+                    },
+                    "404": {
+                        "description": "Unknown index, or one that is not serving search: `index_not_found`",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Missing or invalid product, or invalid fill"
+                    },
+                    "429": {
+                        "description": "Too many requests"
+                    }
+                }
+            }
+        },
+        "/api/public/v1/search/related/event": {
+            "post": {
+                "tags": [
+                    "Default"
+                ],
+                "summary": "Count a click on a related product",
+                "description": "Form-encoded, so a browser beacon needs no preflight. Send one click per link to a product of the search response's `related` list, from the browser: a server-side call would count crawlers. Always 204, whatever it is sent.",
+                "operationId": "089420a6be836e7c4f9367ed484cc863",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/x-www-form-urlencoded": {
+                            "schema": {
+                                "required": [
+                                    "id",
+                                    "event"
+                                ],
+                                "properties": {
+                                    "id": {
+                                        "description": "The search index id",
+                                        "type": "string",
+                                        "format": "uuid"
+                                    },
+                                    "event": {
+                                        "type": "string",
+                                        "enum": [
+                                            "click"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "204": {
+                        "description": "Received, or dropped"
+                    },
+                    "429": {
+                        "description": "Too many requests"
+                    }
+                }
+            }
+        },
+        "/api/public/v1/search/snippets": {
+            "get": {
+                "tags": [
+                    "Search"
+                ],
+                "summary": "Get content snippets for widget",
+                "description": "Returns active content snippets for display in the search widget. Accessed via the SearchIndex UUID id.",
+                "operationId": "getPublicContentSnippets",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "query",
+                        "description": "UUID id of the search index",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "placement",
+                        "in": "query",
+                        "description": "Placement of the snippets to return; pre-search content when omitted",
+                        "required": false,
+                        "schema": {
+                            "$ref": "#/components/schemas/ContentSnippetPlacement"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of active content snippets",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/ContentSnippetPublicResource"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/public/v1/search/suggestions": {
+            "get": {
+                "tags": [
+                    "Search"
+                ],
+                "summary": "Get search suggestions",
+                "description": "Returns keyword suggestions based on popular search terms from the last 7 days in which a word starts with the input query, ignoring accents. Phrases that start with the input come first, then by how many distinct visitors (IP addresses) searched them. `occurrence` is that number. Spellings that differ only in accents count as one phrase. Phrases the merchant hid are not suggested.",
+                "operationId": "getSearchSuggestions",
+                "parameters": [
+                    {
+                        "name": "q",
+                        "in": "query",
+                        "description": "The partial search query to get suggestions for.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "example": "laptop"
+                        }
+                    },
+                    {
+                        "name": "id",
+                        "in": "query",
+                        "description": "UUID id of the search index",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of keyword suggestions",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "required": [
+                                            "keyword",
+                                            "occurrence"
+                                        ],
+                                        "properties": {
+                                            "keyword": {
+                                                "type": "string",
+                                                "example": "laptop gaming"
+                                            },
+                                            "occurrence": {
+                                                "type": "integer",
+                                                "example": 42
+                                            }
+                                        },
+                                        "type": "object"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "ContentSnippetPlacement": {
+                "description": "Where in the widget a snippet shows: before the visitor types, or when a search finds nothing (`{query}` in its text becomes the search text)",
+                "type": "string",
+                "enum": [
+                    "presearch",
+                    "no-results"
+                ]
+            },
+            "ContentSnippetPublicResource": {
+                "description": "Public content snippet for widget display",
+                "properties": {
+                    "slug": {
+                        "description": "Minimal content snippet resource for public widget consumption.\n\nExcludes internal fields (id, search_index_id, timestamps) to provide\nonly the data needed for widget rendering.",
+                        "type": "string",
+                        "example": "welcome-banner"
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Welcome Banner"
+                    },
+                    "content": {
+                        "type": "string",
+                        "example": "<div class='banner'>Welcome!</div>"
+                    },
+                    "placement": {
+                        "$ref": "#/components/schemas/ContentSnippetPlacement"
+                    },
+                    "tags": {
+                        "type": [
+                            "array",
+                            "null"
+                        ],
+                        "items": {
+                            "type": "string"
+                        },
+                        "example": [
+                            "promo"
+                        ]
+                    }
+                },
+                "type": "object"
+            },
+            "ErrorResponse": {
+                "description": "Generic API error response with a short error message and optional human-readable explanation.",
+                "required": [
+                    "error"
+                ],
+                "properties": {
+                    "error": {
+                        "description": "Short error message or category. Most call sites use a sentence-form summary (e.g. \"Missing id parameter\", \"Cannot delete feed: search indices still attached\").",
+                        "type": "string",
+                        "example": "Cannot delete feed: search indices still attached"
+                    },
+                    "message": {
+                        "description": "Human-readable explanation suitable for surfacing to API consumers.",
+                        "type": "string",
+                        "example": "Detach the indices listed under attached_indices before retrying."
+                    }
+                },
+                "type": "object"
+            },
+            "FieldDefinitionCollection": {
+                "description": "Collection of field definitions",
+                "properties": {
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/FieldDefinitionResource"
+                        }
+                    },
+                    "meta": {
+                        "properties": {
+                            "count": {
+                                "type": "integer",
+                                "example": 10
+                            },
+                            "has_custom_fields": {
+                                "type": "boolean",
+                                "example": true
+                            },
+                            "custom_field_count": {
+                                "type": "integer",
+                                "example": 2
+                            }
+                        },
+                        "type": "object"
+                    }
+                },
+                "type": "object"
+            },
+            "FieldDefinitionResource": {
+                "description": "Field definition resource",
+                "required": [
+                    "field_id",
+                    "original_key",
+                    "type",
+                    "type_label",
+                    "type_group",
+                    "token",
+                    "is_custom",
+                    "split_delimiter",
+                    "rebuild_pending",
+                    "sample_values"
+                ],
+                "properties": {
+                    "field_id": {
+                        "type": "string",
+                        "example": "product_name"
+                    },
+                    "original_key": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "example": "name"
+                    },
+                    "type": {
+                        "type": "string",
+                        "example": "title",
+                        "enum": [
+                            "title",
+                            "url",
+                            "image",
+                            "price",
+                            "sale_price",
+                            "brand",
+                            "category",
+                            "description",
+                            "identifier",
+                            "sku",
+                            "attribute",
+                            "availability",
+                            "boolean",
+                            "size",
+                            "barcode",
+                            "color",
+                            "mpn",
+                            "number",
+                            "no_index"
+                        ]
+                    },
+                    "type_label": {
+                        "description": "The type's name for display",
+                        "type": "string",
+                        "example": "Title"
+                    },
+                    "type_group": {
+                        "type": "string",
+                        "example": "content",
+                        "enum": [
+                            "content",
+                            "commerce",
+                            "taxonomy",
+                            "media",
+                            "identifiers",
+                            "metadata",
+                            "special"
+                        ]
+                    },
+                    "token": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "example": "NAME"
+                    },
+                    "is_custom": {
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "split_delimiter": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "example": ","
+                    },
+                    "rebuild_pending": {
+                        "description": "The live index stores this field at another type: search, filters, sorting and value detection on it wait until the index is rebuilt",
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "sample_values": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "type": "object"
+            },
+            "ProductWriteResult": {
+                "required": [
+                    "successful",
+                    "filtered",
+                    "pending",
+                    "failed",
+                    "results",
+                    "meta"
+                ],
+                "properties": {
+                    "successful": {
+                        "description": "Stored and searchable",
+                        "type": "integer"
+                    },
+                    "filtered": {
+                        "description": "Stored, dropped by a preprocessor, removed from the index (API-sourced only)",
+                        "type": "integer"
+                    },
+                    "pending": {
+                        "description": "Stored durably, not yet searchable; a scheduled repair will finish it (API-sourced only). Do not re-send",
+                        "type": "integer"
+                    },
+                    "failed": {
+                        "description": "Rejected input; nothing was stored",
+                        "type": "integer"
+                    },
+                    "results": {
+                        "description": "Per product, in request order",
+                        "type": "array",
+                        "items": {
+                            "required": [
+                                "id",
+                                "status"
+                            ],
+                            "properties": {
+                                "id": {
+                                    "type": "string"
+                                },
+                                "status": {
+                                    "type": "string",
+                                    "enum": [
+                                        "ok",
+                                        "filtered",
+                                        "pending",
+                                        "error"
+                                    ]
+                                },
+                                "reason": {
+                                    "description": "Why it was rejected (error) or is not yet searchable (pending)",
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ]
+                                }
+                            },
+                            "type": "object"
+                        }
+                    },
+                    "meta": {
+                        "required": [
+                            "duration_ms",
+                            "es_duration_ms",
+                            "refresh_policy"
+                        ],
+                        "properties": {
+                            "duration_ms": {
+                                "type": "integer"
+                            },
+                            "es_duration_ms": {
+                                "type": "integer"
+                            },
+                            "refresh_policy": {
+                                "type": "string"
+                            }
+                        },
+                        "type": "object"
+                    }
+                },
+                "type": "object"
+            },
+            "PublicSearchResponse": {
+                "required": [
+                    "results"
+                ],
+                "properties": {
+                    "results": {
+                        "description": "The hits and facets; an empty array for a health check or when nothing was searched (see `reason`).",
+                        "oneOf": [
+                            {
+                                "required": [
+                                    "hits"
+                                ],
+                                "properties": {
+                                    "hits": {
+                                        "required": [
+                                            "total",
+                                            "hits"
+                                        ],
+                                        "properties": {
+                                            "total": {
+                                                "required": [
+                                                    "value"
+                                                ],
+                                                "properties": {
+                                                    "value": {
+                                                        "description": "Every match, not just this page",
+                                                        "type": "integer"
+                                                    },
+                                                    "relation": {
+                                                        "type": "string",
+                                                        "enum": [
+                                                            "eq",
+                                                            "gte"
+                                                        ]
+                                                    }
+                                                },
+                                                "type": "object"
+                                            },
+                                            "hits": {
+                                                "type": "array",
+                                                "items": {
+                                                    "required": [
+                                                        "_source"
+                                                    ],
+                                                    "properties": {
+                                                        "_source": {
+                                                            "description": "The fields marked \"include in results\", the product id among them",
+                                                            "type": "object"
+                                                        },
+                                                        "highlight": {
+                                                            "description": "With highlight=1: per title field, the values with the match in <strong>",
+                                                            "type": "object"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            }
+                                        },
+                                        "type": "object"
+                                    },
+                                    "aggregations": {
+                                        "description": "`<field>_facet` terms buckets and `min_<field>` / `max_<field>` for range fields",
+                                        "type": "object"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            {
+                                "type": "array",
+                                "items": {},
+                                "maxItems": 0
+                            }
+                        ]
+                    },
+                    "banners": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "detected": {
+                        "description": "Values recognised in the query",
+                        "type": "array",
+                        "items": {
+                            "required": [
+                                "field",
+                                "value",
+                                "action"
+                            ],
+                            "properties": {
+                                "field": {
+                                    "type": "string"
+                                },
+                                "value": {
+                                    "type": "string"
+                                },
+                                "facet_values": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                },
+                                "words": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                },
+                                "action": {
+                                    "type": "string",
+                                    "enum": [
+                                        "boost",
+                                        "filter"
+                                    ]
+                                }
+                            },
+                            "type": "object"
+                        }
+                    },
+                    "merchandising": {
+                        "type": [
+                            "object",
+                            "null"
+                        ]
+                    },
+                    "redirect": {
+                        "description": "The redirect rule this query names; the client navigates to `url`",
+                        "required": [
+                            "url"
+                        ],
+                        "properties": {
+                            "id": {
+                                "type": "string"
+                            },
+                            "url": {
+                                "type": "string"
+                            },
+                            "title": {
+                                "type": "string"
+                            },
+                            "description": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ]
+                            },
+                            "exact": {
+                                "type": "boolean"
+                            }
+                        },
+                        "type": [
+                            "object",
+                            "null"
+                        ]
+                    },
+                    "related": {
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "query_used": {
+                        "description": "What was searched instead of the words, when a correction ran; null otherwise",
+                        "properties": {
+                            "text": {
+                                "type": "string"
+                            },
+                            "dropped_words": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            "corrections": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object"
+                                }
+                            }
+                        },
+                        "type": [
+                            "object",
+                            "null"
+                        ]
+                    },
+                    "category_matches": {
+                        "description": "With category_matches=<n>: categories named like the words, best first",
+                        "type": "array",
+                        "items": {
+                            "type": "object"
+                        }
+                    },
+                    "applied": {
+                        "description": "The filters the search used and those it ignored, with the reason",
+                        "required": [
+                            "filters",
+                            "ignored"
+                        ],
+                        "properties": {
+                            "filters": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            "ignored": {
+                                "type": "array",
+                                "items": {
+                                    "required": [
+                                        "param",
+                                        "reason"
+                                    ],
+                                    "properties": {
+                                        "param": {
+                                            "type": "string"
+                                        },
+                                        "reason": {
+                                            "type": "string",
+                                            "enum": [
+                                                "unknown_field",
+                                                "not_a_facet",
+                                                "not_filterable_type",
+                                                "invalid_value",
+                                                "malformed_range",
+                                                "not_sortable"
+                                            ]
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            },
+                            "names": {
+                                "description": "Names of the selected values, per field",
+                                "type": "object"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "reason": {
+                        "description": "Only when no search ran",
+                        "type": "string",
+                        "enum": [
+                            "index_disabled",
+                            "empty_query"
+                        ]
+                    }
+                },
+                "type": "object"
+            },
+            "SearchBehaviorCollection": {
+                "description": "The search behaviors of an index, one per field",
+                "properties": {
+                    "data": {
+                        "description": "Behaviors keyed by field_id",
+                        "type": "object",
+                        "additionalProperties": {
+                            "$ref": "#/components/schemas/SearchBehaviorResource"
+                        }
+                    },
+                    "meta": {
+                        "properties": {
+                            "field_count": {
+                                "type": "integer",
+                                "example": 10
+                            },
+                            "sortable_fields": {
+                                "description": "Fields whose type allows `sortable` (and, for a number field, once the live index maps it)",
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                },
+                                "example": [
+                                    "price"
+                                ]
+                            },
+                            "facetable_fields": {
+                                "description": "Fields that allow `facet` (by type, and not waiting for a rebuild)",
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                },
+                                "example": [
+                                    "brand",
+                                    "color"
+                                ]
+                            },
+                            "rangeable_fields": {
+                                "description": "Fields that allow `range` (price and number fields, once the live index maps them)",
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                },
+                                "example": [
+                                    "price",
+                                    "sale_price"
+                                ]
+                            },
+                            "searchable_fields": {
+                                "description": "Fields that allow `searchable` (all but numbers and booleans, and not waiting for a rebuild)",
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                },
+                                "example": [
+                                    "title",
+                                    "brand"
+                                ]
+                            },
+                            "rebuild_pending_fields": {
+                                "description": "Fields whose type changed: search, filter, sort and value detection on them wait until the index is rebuilt (the next full sync of a feed index; the automatic rebuild of an API-sourced index)",
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                },
+                                "example": [
+                                    "storage_gb"
+                                ]
+                            },
+                            "latin_spelling_fields": {
+                                "description": "Fields that allow `latin_spelling`. Null unless the index is Greek",
+                                "type": [
+                                    "array",
+                                    "null"
+                                ],
+                                "items": {
+                                    "type": "string"
+                                },
+                                "example": [
+                                    "title",
+                                    "brand"
+                                ]
+                            },
+                            "rebuild_pending_behaviors": {
+                                "description": "For each field in `rebuild_pending_fields`, the switches its new type allows once the index is rebuilt (searchable, fuzzy, facet, range, sortable, latin_spelling)",
+                                "type": "object",
+                                "example": {
+                                    "storage_gb": [
+                                        "facet",
+                                        "range",
+                                        "sortable"
+                                    ]
+                                },
+                                "additionalProperties": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        },
+                        "type": "object"
+                    }
+                },
+                "type": "object"
+            },
+            "SearchBehaviorResource": {
+                "description": "Search behavior resource",
+                "properties": {
+                    "searchable": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "fuzzy": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "facet": {
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "range": {
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "include_in_results": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "exact_match_boost": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 10
+                    },
+                    "partial_match_boost": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 5
+                    },
+                    "sort_label": {
+                        "description": "The name in the sort dropdown. Empty uses the field id.",
+                        "type": "string",
+                        "example": "Price"
+                    },
+                    "sortable": {
+                        "description": "Searches may sort by it: the sort dropdown of the full results page and the search API `sort`",
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "latin_spelling": {
+                        "description": "A Greek query word also matches its Latin spellings in this field (\"νικε\" finds \"Nike\"). Read on Greek indexes only",
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "value_detection": {
+                        "description": "Recognising values of this field in queries. Null on fields whose values cannot be recognised (title, description, identifiers, numbers).",
+                        "properties": {
+                            "enabled": {
+                                "type": "boolean",
+                                "example": true
+                            },
+                            "action": {
+                                "type": "string",
+                                "example": "boost",
+                                "enum": [
+                                    "boost",
+                                    "filter",
+                                    "filter-when-alone"
+                                ]
+                            },
+                            "strength": {
+                                "type": "string",
+                                "example": "first",
+                                "enum": [
+                                    "none",
+                                    "low",
+                                    "medium",
+                                    "high",
+                                    "first"
+                                ]
+                            },
+                            "remove_words": {
+                                "description": "A filter takes its words out of the text search. Off by default; ignored for a boost",
+                                "type": "boolean",
+                                "example": false
+                            },
+                            "allow_typo": {
+                                "type": "boolean",
+                                "example": false
+                            },
+                            "min_products": {
+                                "type": "integer",
+                                "example": 2
+                            },
+                            "priority": {
+                                "type": "integer",
+                                "example": 40
+                            }
+                        },
+                        "type": [
+                            "object",
+                            "null"
+                        ]
+                    }
+                },
+                "type": "object"
+            },
+            "SearchIndexResource": {
+                "description": "A search index and its field schema",
+                "required": [
+                    "id",
+                    "name",
+                    "name_override",
+                    "source",
+                    "lifecycle_state",
+                    "rebuild",
+                    "index_name",
+                    "langcode",
+                    "backend_type",
+                    "status",
+                    "field_definitions",
+                    "created_at",
+                    "updated_at"
+                ],
+                "properties": {
+                    "id": {
+                        "description": "Search index UUID; the value to pass as ?id= when searching",
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "018f1234-5678-7abc-def0-123456789abc"
+                    },
+                    "name": {
+                        "description": "Resolved display name (user-supplied if set, otherwise 'Index <id>')",
+                        "type": "string",
+                        "example": "Spring Catalog"
+                    },
+                    "name_override": {
+                        "description": "Raw user-supplied name; null when no override is set",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "example": "Spring Catalog"
+                    },
+                    "source": {
+                        "description": "Where products come from: imported from a feed, or written through the API",
+                        "type": "string",
+                        "example": "api",
+                        "enum": [
+                            "feed",
+                            "api"
+                        ]
+                    },
+                    "lifecycle_state": {
+                        "description": "Whether the index accepts writes and configuration edits; an index is only writable while active",
+                        "type": "string",
+                        "example": "active",
+                        "enum": [
+                            "creating",
+                            "active",
+                            "deleting"
+                        ]
+                    },
+                    "rebuild": {
+                        "description": "The rebuild of an API-sourced index from its stored products, while one is running; null otherwise. Writes and search keep working during it; edits of fields, preprocessors and the price format answer 409 rebuild_in_progress until it is done",
+                        "properties": {
+                            "status": {
+                                "type": "string",
+                                "example": "building",
+                                "enum": [
+                                    "building",
+                                    "catching-up",
+                                    "switching",
+                                    "refreshing",
+                                    "cleanup"
+                                ]
+                            },
+                            "reason": {
+                                "type": "string",
+                                "example": "type-change",
+                                "enum": [
+                                    "type-change",
+                                    "langcode",
+                                    "reprocess",
+                                    "mapping",
+                                    "server-move",
+                                    "repair"
+                                ]
+                            },
+                            "started_at": {
+                                "type": [
+                                    "string",
+                                    "null"
+                                ],
+                                "format": "date-time"
+                            },
+                            "built": {
+                                "description": "Products written into the new index so far",
+                                "type": "integer",
+                                "example": 1200
+                            },
+                            "expected": {
+                                "description": "Live products in the store",
+                                "type": [
+                                    "integer",
+                                    "null"
+                                ],
+                                "example": 4000
+                            }
+                        },
+                        "type": [
+                            "object",
+                            "null"
+                        ]
+                    },
+                    "index_name": {
+                        "description": "Physical Elasticsearch index backing this search index",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "example": "018f1234-5678-7abc-def0-123456789abc__v1"
+                    },
+                    "langcode": {
+                        "description": "Language code driving the analyzers",
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "example": "en"
+                    },
+                    "backend_type": {
+                        "description": "Search backend",
+                        "type": "string",
+                        "example": "elasticsearch"
+                    },
+                    "status": {
+                        "description": "Index status (0=disabled, 1=enabled)",
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "field_definitions": {
+                        "description": "The index schema",
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/FieldDefinitionResource"
+                        }
+                    },
+                    "created_at": {
+                        "description": "Creation timestamp",
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "description": "Last update timestamp",
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "StoredProduct": {
+                "description": "A product held in the durable store behind an API-sourced index, as the client sent it and as it was processed",
+                "properties": {
+                    "product_uid": {
+                        "description": "The product's identifier, exactly as the client supplied it",
+                        "type": "string",
+                        "example": "SKU-12345"
+                    },
+                    "title": {
+                        "description": "Display title, taken from the configured title field when the product was written",
+                        "type": "string",
+                        "example": "iPhone 15 Pro Max 256GB"
+                    },
+                    "raw_data": {
+                        "description": "The body the client sent, before any preprocessor ran. Null on a product that has no stored payload",
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "additionalProperties": true
+                    },
+                    "processed_data": {
+                        "description": "The document as it was indexed. Null when a preprocessor dropped the product — see `filtered`",
+                        "type": [
+                            "object",
+                            "null"
+                        ],
+                        "additionalProperties": true
+                    },
+                    "filtered": {
+                        "description": "True when a preprocessor dropped this product: it is stored, but deliberately not searchable",
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "pending": {
+                        "description": "True when the product's latest revision has not been confirmed by the search backend yet. It is stored durably and will become searchable; it is not lost",
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "updated_at": {
+                        "description": "When this product was last written",
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2026-09-18T10:30:00+00:00"
+                    }
+                },
+                "type": "object"
+            },
+            "WebsiteResource": {
+                "description": "Website resource representation",
+                "properties": {
+                    "id": {
+                        "description": "Website UUID",
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "018f1234-5678-7abc-def0-123456789abc"
+                    },
+                    "slug": {
+                        "description": "URL slug",
+                        "type": "string",
+                        "example": "electronics-store"
+                    },
+                    "organization_id": {
+                        "description": "Organization UUID",
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "018f1234-5678-7abc-def0-123456789abd"
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Electronics Store"
+                    },
+                    "domain": {
+                        "type": [
+                            "string",
+                            "null"
+                        ],
+                        "example": "electronics.example.com"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "updated_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "users_count": {
+                        "description": "Number of direct members (when loaded; never returned to an API key)",
+                        "type": "integer",
+                        "example": 5
+                    },
+                    "search_indices_count": {
+                        "description": "Number of search indices (when loaded; for an API key, only the indexes in its grant)",
+                        "type": "integer",
+                        "example": 3
+                    }
+                },
+                "type": "object"
+            }
+        },
+        "securitySchemes": {
+            "apiKey": {
+                "type": "http",
+                "description": "Sent as `Authorization: Bearer …`. Accepted by `/api/integration/v1` only. Two kinds of\ncredential reach it:\n\n- a site API key (`ifk_…`), created by a site admin on the site's **API keys** page or with\n  `php artisan api-keys:create`. It expires after at most a year and can be rotated with a\n  grace period or revoked;\n- an OAuth access token (`ifa_…`, valid for one hour) issued to an app connected through\n  \"Connect to instafind\". The app renews it with its refresh token.\n\nEither way the credential belongs to one website, not to a person. It holds scopes\n(`indexes:read`, `indexes:manage`, `products:read`, `products:write`, `products:delete`,\n`analytics:read`, `orders:write`) and covers either all of the site's indexes or a chosen list; anything\noutside that answers 404, exactly like a missing record.",
+                "bearerFormat": "ifk_… or ifa_…",
+                "scheme": "bearer"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Analytics",
+            "description": "Analytics"
+        },
+        {
+            "name": "Client Product Writes"
+        },
+        {
+            "name": "Default",
+            "description": "Productpit related operations"
+        },
+        {
+            "name": "Integration",
+            "description": "Integration"
+        },
+        {
+            "name": "Integration API",
+            "description": "/api/integration/v1 — the only endpoints a site API key reaches. Each needs one scope. The integration routes share controllers with the /api/v1 routes of the same path, so request and response bodies are documented there; errors use {error, message}: 401 invalid_api_key / api_key_revoked / api_key_expired, 403 insufficient_scope (with required_scope), 404 not_found (also for anything outside the key's website or index grant)."
+        },
+        {
+            "name": "Merchandising Rules",
+            "description": "Merchandising Rules"
+        },
+        {
+            "name": "Public Search",
+            "description": "Public Search"
+        },
+        {
+            "name": "Search",
+            "description": "Search"
+        }
+    ]
+}
