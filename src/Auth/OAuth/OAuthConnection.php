@@ -260,7 +260,7 @@ final class OAuthConnection implements Credential
     }
 
     /** Whether the stored access token is a usable one other than $before. */
-    private function takeNewer(string $before): bool
+    private function takeNewer(#[\SensitiveParameter] string $before): bool
     {
         $state = $this->read();
         if ($state === null || $state->isLost() || $state->accessToken() === $before || $state->expiresAt() - self::EARLY <= $this->clock->now()) {
