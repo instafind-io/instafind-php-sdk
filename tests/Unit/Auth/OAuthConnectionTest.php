@@ -264,6 +264,34 @@ final class OAuthConnectionTest extends TestCase
         self::assertFalse($store->isLocked());
     }
 
+    public function testAWaiterDoesNotRepeatAFailedRenewalOfALiveProcess(): void
+    {
+        $store = $this->staleLockStore();
+        $clock = $this->clock;
+        // The other process gives up on a refresh after a few seconds and lets go.
+        $sleeper = new class ($store, $clock) implements Sleeper {
+            private int $sleeps = 0;
+
+            public function __construct(private TokenStore $store, private FakeClock $clock) {}
+
+            public function sleep(float $seconds): void
+            {
+                $this->clock->advance(1);
+                if (++$this->sleeps === 5) {
+                    $this->store->releaseLock();
+                }
+            }
+        };
+        $connection = new OAuthConnection($store, $this->transport, null, null, $this->clock, $sleeper);
+        $connection->connect(OAuthClientTest::server(), 'client-1', new Tokens('ifa_1', 'ifr_1', $this->clock->now + 3600));
+        $connection->bearer();
+        self::assertTrue($store->acquireLock(1));
+
+        // Before, every waiter then ran a renewal of its own, one after the other.
+        self::assertFalse($connection->renew());
+        self::assertSame([], $this->transport->requests());
+    }
+
     public function testASlowTransportIsNotRetriedPastTheBudget(): void
     {
         // A PSR-18 client with a 15 s timeout: a second attempt could end after

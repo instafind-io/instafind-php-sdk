@@ -21,7 +21,9 @@ use Instafind\Sdk\Transport\Transport;
  * Renewal runs behind the {@see TokenStore}'s lock, because two processes
  * spending the same refresh token look like a stolen token to Instafind.
  * A process that finds the lock taken waits for the other one and uses what
- * it stored.
+ * it stored; it renews itself only when the lock goes stale (the other
+ * process died), early enough to repeat that one's refresh inside
+ * Instafind's 60-second retry window.
  *
  * When Instafind refuses the refresh token for good (`invalid_grant` …: the
  * connection was revoked), the stored connection is marked lost and the
@@ -44,12 +46,13 @@ final class OAuthConnection implements Credential
 
     /**
      * Seconds after taking the lock by which the refresh attempts must have
-     * ended (3 × 8 s plus the pauses). Another attempt starts only if it
-     * would end in time, assuming it lasts as long as the slowest one so far:
+     * ended (3 × 8 s plus the pauses, and 2 s for whole-second clocks), before
+     * LOCK_STALE - 1, after which the lock is no longer released. Another
+     * attempt starts only if it would end in time, assuming it lasts as long as the slowest one so far:
      * with a transport that ignores the timeout (a PSR-18 client, a filtered
      * WordPress request) a renewal could otherwise outlast LOCK_STALE.
      */
-    private const REFRESH_BUDGET = 28;
+    private const REFRESH_BUDGET = 30;
 
     /**
      * A lock older than this was left by a process that died. Longer than a
@@ -171,14 +174,11 @@ final class OAuthConnection implements Credential
     public function renew(): bool
     {
         $before = $this->current;
-        try {
-            // Waits for another process's renewal, or takes over the lock it
-            // left when it died, early enough to repeat its refresh inside
-            // Instafind's retry window.
-            $this->lock();
-        } catch (InstafindException) {
+        if (!$this->store->acquireLock(self::LOCK_STALE) && !$this->takeOverStaleLock()) {
+            // Another process renewed, or tried and failed: use what it stored.
             return $this->takeNewer($before);
         }
+        $this->lockedAt = $this->clock->now();
 
         $spent = '';
         try {
@@ -267,6 +267,27 @@ final class OAuthConnection implements Credential
             $this->sleeper->sleep(0.25);
         }
         $this->lockedAt = $this->clock->now();
+    }
+
+    /**
+     * Wait while another process holds the lock. False as soon as it lets
+     * go; true when this process took the lock over because it went stale
+     * (that process died while renewing, and its refresh must be repeated).
+     */
+    private function takeOverStaleLock(): bool
+    {
+        $deadline = $this->clock->now() + self::LOCK_STALE + 1;
+        while ($this->clock->now() < $deadline) {
+            $this->sleeper->sleep(0.25);
+            if (!$this->store->isLocked()) {
+                return false;
+            }
+            if ($this->store->acquireLock(self::LOCK_STALE)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

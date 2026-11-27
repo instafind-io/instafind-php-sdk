@@ -22,7 +22,9 @@ use Psr\Http\Message\StreamFactoryInterface;
  * the client, and {@see self::sendMany()} sends one request after the other.
  * Make sure the client does not follow redirects.
  *
- * Give the client a timeout of at most 8 seconds (Guzzle's default is none).
+ * Give the client a timeout of at most 8 seconds (Guzzle's default is none),
+ * or, if other calls need longer, give the transport for
+ * {@see \Instafind\Sdk\Auth\OAuth\OAuthConnection} a client of its own.
  * {@see \Instafind\Sdk\Auth\OAuth\OAuthConnection} holds its renewal lock
  * for at most 35 seconds before another process may take it over: a refresh
  * that hangs longer lets that process spend the same refresh token, and

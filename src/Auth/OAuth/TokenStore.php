@@ -11,7 +11,7 @@ namespace Instafind\Sdk\Auth\OAuth;
  * The lock matters: a refresh token works once, and two processes spending
  * the same one look like a stolen token to Instafind, which then revokes the
  * connection. The lock must therefore hold across processes (a database row
- * inserted atomically, `flock()` on a shared file …), not just in memory.
+ * inserted atomically with the time it was taken …), not just in memory.
  */
 interface TokenStore
 {
@@ -32,10 +32,13 @@ interface TokenStore
      * Take the renewal lock without waiting.
      *
      * @param int $staleAfter seconds after which a lock is a leftover of a
-     *                        process that died and may be taken over. Honour
-     *                        it exactly: a takeover much later than this
-     *                        misses Instafind's 60-second retry window, and
-     *                        the connection is lost
+     *                        process that died and may be taken over. Judge
+     *                        it by the lock's age alone, even while its
+     *                        holder still runs (an `flock()` held by a live
+     *                        process does not qualify), and honour it
+     *                        exactly: a takeover much later than this misses
+     *                        Instafind's 60-second retry window, and the
+     *                        connection is lost
      *
      * @return bool whether this process now holds it
      */
@@ -43,6 +46,10 @@ interface TokenStore
 
     public function releaseLock(): void;
 
-    /** Whether some process holds the lock now. */
+    /**
+     * Whether some process holds the lock now, a stale one included until it
+     * is taken over or released: a waiting process takes that as a sign that
+     * the renewal is still running, and takes a stale lock over itself.
+     */
     public function isLocked(): bool;
 }
