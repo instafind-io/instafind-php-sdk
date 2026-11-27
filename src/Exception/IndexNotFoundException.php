@@ -6,13 +6,13 @@ namespace Instafind\Sdk\Exception;
 
 /**
  * Instafind has no such index for this caller: a deleted index, one being
- * created or deleted, and one the credential may not see all get this answer
- * (404). Its error code is `index_not_found` whatever the route sent.
+ * created or deleted, and one the credential may not see all get this answer:
+ * 404 with the error code `index_not_found`.
  */
 class IndexNotFoundException extends ApiException
 {
     /**
-     * The 404 of a route where any 404 means the index.
+     * The 404 of a route where a plain `not_found` means the index.
      *
      * @internal
      */

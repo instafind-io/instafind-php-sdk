@@ -53,7 +53,7 @@ final class PublicApiTest extends TestCase
 
     public function testAnUnknownIndexIsIndexNotFound(): void
     {
-        $this->transport->queueJson(404, ['results' => ['error' => 'ID not found']]);
+        $this->transport->queueJson(404, ['error' => 'index_not_found', 'message' => 'Index not found.']);
 
         try {
             $this->api->search(self::INDEX, SearchQuery::text('x'));
@@ -66,10 +66,23 @@ final class PublicApiTest extends TestCase
 
     public function testImageSearchMapsItsNotFoundToo(): void
     {
-        $this->transport->queueJson(404, ['error' => 'Configuration not found']);
+        $this->transport->queueJson(404, ['error' => 'index_not_found', 'message' => 'Index not found.']);
 
         $this->expectException(IndexNotFoundException::class);
         $this->api->imageSearch(self::INDEX, 'p1');
+    }
+
+    public function testOnlyTheErrorCodeMeansAMissingIndex(): void
+    {
+        $this->transport->queueJson(404, ['results' => ['error' => 'ID not found']]);
+
+        try {
+            $this->api->search(self::INDEX, SearchQuery::text('x'));
+            self::fail('No exception');
+        } catch (ApiException $e) {
+            self::assertNotInstanceOf(IndexNotFoundException::class, $e);
+            self::assertSame(404, $e->status());
+        }
     }
 
     public function testNothingIsRetriedByDefault(): void
@@ -87,7 +100,7 @@ final class PublicApiTest extends TestCase
     public function testSearchManyKeepsKeysAndFailures(): void
     {
         $this->transport->queueJson(200, ['results' => ['hits' => ['total' => ['value' => 1, 'relation' => 'eq'], 'hits' => []]]]);
-        $this->transport->queueJson(404, ['results' => ['error' => 'ID not found']]);
+        $this->transport->queueJson(404, ['error' => 'index_not_found', 'message' => 'Index not found.']);
         $this->transport->queueFailure();
 
         $out = $this->api->searchMany(self::INDEX, ['a' => SearchQuery::text('a'), 'b' => SearchQuery::text('b'), 'c' => SearchQuery::text('c')], 1.5);

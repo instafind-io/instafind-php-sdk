@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Instafind\Sdk;
 
-use Instafind\Sdk\Exception\ApiException;
 use Instafind\Sdk\Exception\IndexNotFoundException;
 use Instafind\Sdk\Exception\InstafindException;
 use Instafind\Sdk\Http\ApiClient;
@@ -33,9 +32,10 @@ use Instafind\Sdk\Support\Data;
  * takes an optional `$timeout` for that call alone.
  *
  * On the routes that name an index (search, campaign, product suggestions,
- * image search), an unknown or disabled-for-search index throws
- * {@see IndexNotFoundException}. Suggestions, snippets, facet config and
- * keywords answer empty for an unknown index, by design.
+ * image search), an index Instafind does not have answers 404
+ * `index_not_found` and throws {@see IndexNotFoundException}. Suggestions,
+ * snippets, facet config and keywords answer empty for an unknown index, by
+ * design.
  */
 final class PublicApi
 {
@@ -65,7 +65,7 @@ final class PublicApi
      */
     public function search(string $indexId, SearchQuery $query, ?float $timeout = null): SearchResult
     {
-        return new SearchResult($this->sendForIndex($indexId, $this->searchRequest($indexId, $query, $timeout)));
+        return new SearchResult($this->sendMap($this->searchRequest($indexId, $query, $timeout)));
     }
 
     /**
@@ -81,7 +81,7 @@ final class PublicApi
     {
         $requests = array_map(fn(SearchQuery $q): Request => $this->searchRequest($indexId, $q, $timeout), $queries);
 
-        return $this->many($indexId, $requests, static fn(array $data): SearchResult => new SearchResult($data));
+        return $this->many($requests, static fn(array $data): SearchResult => new SearchResult($data));
     }
 
     /** The public URL of a search, for a cache key or the browser. */
@@ -99,7 +99,7 @@ final class PublicApi
      */
     public function campaign(string $indexId, string $name, ?SearchQuery $query = null, ?float $timeout = null): CampaignResult
     {
-        return new CampaignResult($this->sendForIndex($indexId, $this->campaignRequest($indexId, $name, $query, $timeout)));
+        return new CampaignResult($this->sendMap($this->campaignRequest($indexId, $name, $query, $timeout)));
     }
 
     /**
@@ -115,7 +115,7 @@ final class PublicApi
     {
         $requests = array_map(fn(SearchQuery $q): Request => $this->campaignRequest($indexId, $name, $q, $timeout), $queries);
 
-        return $this->many($indexId, $requests, static fn(array $data): CampaignResult => new CampaignResult($data));
+        return $this->many($requests, static fn(array $data): CampaignResult => new CampaignResult($data));
     }
 
     /**
@@ -145,7 +145,7 @@ final class PublicApi
     {
         $request = $this->api->request('GET', self::BASE_PATH . '/search/product-suggestions', ['id' => $indexId] + $query->toArray(), null, $timeout);
 
-        return new SearchResult($this->sendForIndex($indexId, $request));
+        return new SearchResult($this->sendMap($request));
     }
 
     /**
@@ -180,7 +180,7 @@ final class PublicApi
 
         $request = $this->api->request('GET', self::BASE_PATH . '/search/image', ['id' => $indexId, 'q' => $productId] + $params, null, $timeout);
 
-        return new SearchResult($this->sendForIndex($indexId, $request));
+        return new SearchResult($this->sendMap($request));
     }
 
     /**
@@ -257,13 +257,9 @@ final class PublicApi
     /**
      * @return array<string, mixed>
      */
-    private function sendForIndex(string $indexId, Request $request): array
+    private function sendMap(Request $request): array
     {
-        try {
-            return self::asMap($this->api->send($request));
-        } catch (ApiException $e) {
-            throw $e->status() === 404 ? IndexNotFoundException::from($e, $indexId) : $e;
-        }
+        return self::asMap($this->api->send($request));
     }
 
     /**
@@ -275,13 +271,11 @@ final class PublicApi
      *
      * @return array<K, R|InstafindException>
      */
-    private function many(string $indexId, array $requests, callable $wrap): array
+    private function many(array $requests, callable $wrap): array
     {
         $out = [];
         foreach ($this->api->sendMany($requests) as $key => $answer) {
-            if ($answer instanceof ApiException && $answer->status() === 404) {
-                $out[$key] = IndexNotFoundException::from($answer, $indexId);
-            } elseif ($answer instanceof InstafindException) {
+            if ($answer instanceof InstafindException) {
                 $out[$key] = $answer;
             } else {
                 $out[$key] = $wrap(self::asMap($answer));
