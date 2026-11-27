@@ -9,7 +9,8 @@
 #
 # The first release has no tag to count from: it must be `major` and is
 # v1.0.0. Without --push it only shows what would be released. With --push,
-# main and the tag go up together or not at all; the tag is the release
+# the live integration job (integration.yml) must have passed on origin/main,
+# and main and the tag go up together or not at all; the tag is the release
 # consumers install (release.yml then publishes the GitHub Release). Release
 # only with the owner's go.
 
@@ -145,6 +146,22 @@ echo
 if [[ "$push" != "1" ]]; then
     echo "Nothing pushed. Run again with --push to release $tag."
     exit 0
+fi
+
+# The live integration job must have passed on origin/main's tip, which the
+# release commit goes on top of.
+sha=$(git -C "$tree" rev-parse HEAD)
+gh_err=$(mktemp)
+if ! green=$(gh run list --repo instafind-io/instafind-php-sdk --workflow=integration.yml --commit "$sha" --status success --limit 1 --json databaseId --jq length 2>"$gh_err"); then
+    echo "Could not ask GitHub for live integration runs: $(cat "$gh_err")" >&2
+    rm -f "$gh_err"
+    exit 1
+fi
+rm -f "$gh_err"
+if [[ "$green" != "1" ]]; then
+    echo "No green live integration run on $sha. Run it, wait for it, then release:" >&2
+    echo "  gh workflow run integration.yml --repo instafind-io/instafind-php-sdk --ref main" >&2
+    exit 1
 fi
 
 git -C "$tree" rm --quiet -- 'changelog.d/*.md' ':!changelog.d/README.md'

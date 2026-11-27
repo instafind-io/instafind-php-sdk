@@ -2,6 +2,7 @@
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
          bootstrap="vendor/autoload.php"
+         defaultTestSuite="unit,contract"
          cacheDirectory=".phpunit.cache"
          colors="true"
          failOnRisky="true"
@@ -16,6 +17,9 @@
         </testsuite>
         <testsuite name="contract">
             <directory>tests/Contract</directory>
+        </testsuite>
+        <testsuite name="integration">
+            <directory>tests/Integration</directory>
         </testsuite>
     </testsuites>
     <source>
