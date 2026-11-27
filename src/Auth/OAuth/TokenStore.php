@@ -32,7 +32,10 @@ interface TokenStore
      * Take the renewal lock without waiting.
      *
      * @param int $staleAfter seconds after which a lock is a leftover of a
-     *                        process that died and may be taken over
+     *                        process that died and may be taken over. Honour
+     *                        it exactly: a takeover much later than this
+     *                        misses Instafind's 60-second retry window, and
+     *                        the connection is lost
      *
      * @return bool whether this process now holds it
      */

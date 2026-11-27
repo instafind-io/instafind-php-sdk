@@ -188,6 +188,61 @@ final class OAuthConnectionTest extends TestCase
         self::assertSame([], $this->transport->requests());
     }
 
+    public function testALeftoverLockIsTakenOverInsideInstafindsRetryWindow(): void
+    {
+        $store = new class ($this->store) implements TokenStore {
+            /** @var list<int> */
+            public array $staleAfter = [];
+
+            public function __construct(private InMemoryTokenStore $inner) {}
+
+            public function load(): ?ConnectionState
+            {
+                return $this->inner->load();
+            }
+
+            public function save(ConnectionState $state): void
+            {
+                $this->inner->save($state);
+            }
+
+            public function delete(): void
+            {
+                $this->inner->delete();
+            }
+
+            public function acquireLock(int $staleAfter): bool
+            {
+                $this->staleAfter[] = $staleAfter;
+
+                return $this->inner->acquireLock($staleAfter);
+            }
+
+            public function releaseLock(): void
+            {
+                $this->inner->releaseLock();
+            }
+
+            public function isLocked(): bool
+            {
+                return $this->inner->isLocked();
+            }
+        };
+        $connection = new OAuthConnection($store, $this->transport, null, null, $this->clock, $this->sleeper);
+        $connection->connect(OAuthClientTest::server(), 'client-1', new Tokens('ifa_1', 'ifr_1', $this->clock->now + 3600));
+        $this->queueTokens('2');
+        self::assertTrue($connection->renew());
+
+        // A live renewal takes up to 28 s (3 × 8 s plus 2 × 2 s); a process taking
+        // over a dead one's lock must repeat its refresh well inside Instafind's
+        // 60 s window, which starts when the dead process first sent the token.
+        self::assertNotSame([], $store->staleAfter);
+        foreach ($store->staleAfter as $staleAfter) {
+            self::assertGreaterThan(28, $staleAfter);
+            self::assertLessThanOrEqual(40, $staleAfter);
+        }
+    }
+
     public function testDisconnectRevokesAndForgets(): void
     {
         $connection = $this->connect();

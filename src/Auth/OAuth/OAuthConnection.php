@@ -42,8 +42,15 @@ final class OAuthConnection implements Credential
     private const REFRESH_TIMEOUT = 8.0;
     private const REFRESH_PAUSE = 2.0;
 
-    /** A lock older than this was left by a process that died. */
-    private const LOCK_STALE = 60;
+    /**
+     * A lock older than this was left by a process that died. Longer than a
+     * renewal can take (28 s of refresh attempts plus the store), and short
+     * enough that the process taking over repeats the dead one's refresh
+     * inside Instafind's 60-second retry window, which counts from the
+     * token's first use. At 60 s the takeover came too late, and the
+     * connection was revoked as stolen.
+     */
+    private const LOCK_STALE = 35;
 
     /** How long to wait for another process's renewal: longer than one can take. */
     private const LOCK_WAIT = 30;
