@@ -3,7 +3,8 @@
 The official PHP client for Instafind: public search (`/api/public/v1`) and the
 integration API (`/api/integration/v1`). It needs PHP 8.1 or newer and
 `ext-json`, and has no required libraries. Requests go out with cURL by
-default, through any PSR-18 client, or through WordPress.
+default (which needs `ext-curl`), through any PSR-18 client, or through
+WordPress.
 
 ## Install
 
@@ -43,15 +44,16 @@ $result = $search->search($indexId, SearchQuery::text('running shoes')
     ->range('price', 50, 120)
     ->sort('price', SortOrder::Asc));
 
+if ($redirect = $result->redirect()) {      // before any output
+    header('Location: ' . $redirect->url());
+    exit;
+}
 echo $result->total();
 foreach ($result->hits() as $hit) {
     echo $hit->get('title'), ' ', $hit->get('price'), "\n";
 }
 foreach ($result->facet('brand')?->buckets() ?? [] as $bucket) {
     echo $bucket->value(), ' (', $bucket->count(), ")\n";
-}
-if ($redirect = $result->redirect()) {
-    header('Location: ' . $redirect->url());
 }
 ```
 
@@ -112,7 +114,7 @@ products, and only the last batch waits until its products are searchable:
 
 ```php
 $result = $api->bulkLoader()->load($index->id(), $products); // any iterable, a generator too
-printf("%d stored, %d rejected in %d batches\n", $result->successful(), $result->failed(), $result->batches());
+printf("%d successful, %d rejected in %d batches\n", $result->successful(), $result->failed(), $result->batches());
 ```
 
 Pass a `BulkListener` to report progress and to carry on past a refused batch.
@@ -142,10 +144,12 @@ $request = $oauth->authorize('https://shop.example.com/instafind/callback', ['in
 header('Location: ' . $request->url());
 
 // 2. On the callback:
-if (!$request->matchesState($_GET['state'])) {
+$state = $_GET['state'] ?? null;
+$code = $_GET['code'] ?? null;
+if (!is_string($state) || !is_string($code) || !$request->matchesState($state)) {
     exit('Invalid state');
 }
-$tokens = $oauth->exchangeCode($_GET['code'], $request);
+$tokens = $oauth->exchangeCode($code, $request);
 $connection = new OAuthConnection($yourTokenStore, $transport);
 $connection->connect($server, $clientId, $tokens);
 
@@ -160,9 +164,15 @@ $api = new IntegrationApi('https://platform.instafind.io', $connection);
   and `psr/http-factory`. Its requests run one after another, and timeouts are
   set on the client.
 - `WordPressTransport` uses `wp_remote_request()`, and the Requests library for
-  parallel calls. WordPress proxies, the CA bundle and filters apply.
+  parallel calls. Single requests get WordPress's proxy, CA bundle and filters
+  (`pre_http_request`, `http_request_args`); parallel ones get the CA bundle
+  but skip those filters, and on a site with a proxy or blocked external
+  requests they run one after another through `wp_remote_request()`.
 
 ```php
+use Instafind\Sdk\Transport\WordPressTransport;
+
+$userAgent = new UserAgent('my-plugin', '2.0.1', home_url('/'));
 $options = new ClientOptions(transport: new WordPressTransport(), userAgent: $userAgent);
 ```
 
@@ -172,7 +182,7 @@ which Instafind shows on the API key's activity.
 
 ## Errors
 
-Everything the SDK throws extends `Instafind\Sdk\Exception\InstafindException`:
+Every failure of a request extends `Instafind\Sdk\Exception\InstafindException`:
 
 | Exception | When |
 |---|---|
@@ -180,6 +190,12 @@ Everything the SDK throws extends `Instafind\Sdk\Exception\InstafindException`:
 | `IndexNotFoundException` | A 404 for an index this caller cannot reach (deleted, being deleted, not in the key's grant). It extends `ApiException`. |
 | `TransportException` | No answer arrived: DNS, refused connection, TLS, timeout. |
 | `InvalidSchemaException` | An index schema breaks a rule of the API. Nothing was sent. |
+
+Mistakes in the calling code are PHP's own exceptions and are not meant to be
+caught: `\InvalidArgumentException` for an argument out of range (a limit over
+100, more than 500 products in one `upsertProducts()` call, a bad
+`UserAgent` part) and `\LogicException` for a transport that cannot run here
+(`CurlTransport` without `ext-curl`, `WordPressTransport` outside WordPress).
 
 On the integration API, the SDK repeats temporary answers itself: 429, 503,
 and the "wait and retry" 409s, honouring `Retry-After`. It also repeats
@@ -192,6 +208,11 @@ this with `ClientOptions(retryPolicy: new RetryPolicy(...))`.
 request:
 
 ```php
+use Instafind\Sdk\Auth\StaticKey;
+use Instafind\Sdk\ClientOptions;
+use Instafind\Sdk\IntegrationApi;
+use Instafind\Sdk\Testing\MockTransport;
+
 $transport = (new MockTransport())->queueJson(200, ['data' => ['id' => 'k1', 'scopes' => ['products:write']]]);
 $api = new IntegrationApi('https://platform.example', new StaticKey('ifk_test'), new ClientOptions(transport: $transport));
 

@@ -273,7 +273,7 @@
         "/api/integration/v1/search-indices/{index}/campaign-page": {
             "put": {
                 "tags": [
-                    "Integration"
+                    "Integration API"
                 ],
                 "summary": "Set the address campaign links are built from",
                 "operationId": "bb30f424c1ce5e5cf2959c78a548c3c9",
@@ -304,7 +304,12 @@
                     "422": {
                         "description": "Not a full https address with {name} at most once"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "apiKey": []
+                    }
+                ]
             }
         },
         "/api/integration/v1/search-indices/{index}/default-filters": {
@@ -1061,7 +1066,8 @@
                         "description": "Search index ID",
                         "required": true,
                         "schema": {
-                            "type": "integer"
+                            "type": "string",
+                            "format": "uuid"
                         }
                     }
                 ],
@@ -1103,7 +1109,8 @@
                         "description": "Search index ID",
                         "required": true,
                         "schema": {
-                            "type": "integer"
+                            "type": "string",
+                            "format": "uuid"
                         }
                     }
                 ],
@@ -1196,7 +1203,8 @@
                         "description": "Search index ID",
                         "required": true,
                         "schema": {
-                            "type": "integer"
+                            "type": "string",
+                            "format": "uuid"
                         }
                     },
                     {
@@ -1509,8 +1517,8 @@
                         "description": "Website ID",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "example": 15
+                            "type": "string",
+                            "format": "uuid"
                         }
                     },
                     {
@@ -2051,8 +2059,8 @@
                             }
                         }
                     },
-                    "500": {
-                        "description": "Missing required parameter",
+                    "422": {
+                        "description": "A required parameter is missing or invalid",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -2122,6 +2130,17 @@
                             "default": 7,
                             "maximum": 100,
                             "minimum": 0
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "description": "The page of `limit` results, from 1. Pages end at the 10,000th product.",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 1,
+                            "minimum": 1
                         }
                     },
                     {
@@ -2242,6 +2261,50 @@
                                 "0",
                                 "1"
                             ]
+                        }
+                    },
+                    {
+                        "name": "merchandising",
+                        "in": "query",
+                        "description": "With 2 (or higher), the client labels sponsored filter values and products, so sponsored rules may apply. Otherwise they are left out.",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 0
+                        }
+                    },
+                    {
+                        "name": "sid",
+                        "in": "query",
+                        "description": "The visitor's session id, for search analytics. Never a filter.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 255
+                        }
+                    },
+                    {
+                        "name": "filters",
+                        "in": "query",
+                        "description": "Any other parameter is a filter on a field: `<field>[]=<value>` (repeat for several values), `<field>=<min>-<max>` on a range field. What could not be applied is reported in `applied.ignored`.",
+                        "required": false,
+                        "style": "form",
+                        "explode": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "oneOf": [
+                                    {
+                                        "type": "string"
+                                    },
+                                    {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    }
+                                ]
+                            }
                         }
                     }
                 ],
@@ -2392,6 +2455,120 @@
                             "type": "integer",
                             "default": 1,
                             "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "sort",
+                        "in": "query",
+                        "description": "As on /api/public/v1/search.",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "order",
+                        "in": "query",
+                        "description": "Required with sort.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "asc",
+                                "desc"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "facets",
+                        "in": "query",
+                        "description": "As on /api/public/v1/search.",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "facet_size",
+                        "in": "query",
+                        "description": "As on /api/public/v1/search, also facet_size[<field>].",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "default": 50,
+                            "maximum": 1000,
+                            "minimum": 1
+                        }
+                    },
+                    {
+                        "name": "facet_sort",
+                        "in": "query",
+                        "description": "As on /api/public/v1/search.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "default": "count",
+                            "enum": [
+                                "count",
+                                "key"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "strict",
+                        "in": "query",
+                        "description": "With 1, refused (422 filters_not_applied) when a filter or the sort cannot be applied.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "0",
+                                "1"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "merchandising",
+                        "in": "query",
+                        "description": "As on /api/public/v1/search: 2 when the client labels sponsored products.",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "minimum": 0
+                        }
+                    },
+                    {
+                        "name": "sid",
+                        "in": "query",
+                        "description": "The visitor's session id, so rule reports count shoppers. Never a filter.",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "maxLength": 255
+                        }
+                    },
+                    {
+                        "name": "filters",
+                        "in": "query",
+                        "description": "Any other parameter is a filter, as on /api/public/v1/search.",
+                        "required": false,
+                        "style": "form",
+                        "explode": true,
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "oneOf": [
+                                    {
+                                        "type": "string"
+                                    },
+                                    {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    }
+                                ]
+                            }
                         }
                     }
                 ],
@@ -2596,25 +2773,84 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Successful operation",
+                        "description": "The similar products, or, for a disabled index, an empty list with `reason`",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "properties": {
-                                        "results": {
-                                            "type": "array",
-                                            "items": {
-                                                "type": "object"
-                                            }
+                                    "oneOf": [
+                                        {
+                                            "required": [
+                                                "results"
+                                            ],
+                                            "properties": {
+                                                "results": {
+                                                    "required": [
+                                                        "hits",
+                                                        "aggregations"
+                                                    ],
+                                                    "properties": {
+                                                        "hits": {
+                                                            "required": [
+                                                                "hits"
+                                                            ],
+                                                            "properties": {
+                                                                "hits": {
+                                                                    "type": "array",
+                                                                    "items": {
+                                                                        "required": [
+                                                                            "_source"
+                                                                        ],
+                                                                        "properties": {
+                                                                            "_source": {
+                                                                                "type": "object"
+                                                                            }
+                                                                        },
+                                                                        "type": "object"
+                                                                    }
+                                                                }
+                                                            },
+                                                            "type": "object"
+                                                        },
+                                                        "aggregations": {
+                                                            "description": "Facet counts and `min_`/`max_<field>` per range field, as on /api/public/v1/search.",
+                                                            "type": "object"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            },
+                                            "type": "object"
                                         },
-                                        "total": {
-                                            "type": "integer"
-                                        },
-                                        "execution_time": {
-                                            "type": "number"
+                                        {
+                                            "required": [
+                                                "results",
+                                                "total",
+                                                "reason"
+                                            ],
+                                            "properties": {
+                                                "results": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "object"
+                                                    },
+                                                    "maxItems": 0
+                                                },
+                                                "total": {
+                                                    "type": "integer",
+                                                    "enum": [
+                                                        0
+                                                    ]
+                                                },
+                                                "reason": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "index_disabled"
+                                                    ]
+                                                }
+                                            },
+                                            "type": "object"
                                         }
-                                    },
-                                    "type": "object"
+                                    ]
                                 }
                             }
                         }
@@ -2623,7 +2859,7 @@
                         "description": "Bad request"
                     },
                     "404": {
-                        "description": "Unknown index: `index_not_found`",
+                        "description": "No such index, or one that is not serving search: `index_not_found`",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -2971,6 +3207,18 @@
             },
             "FieldDefinitionResource": {
                 "description": "Field definition resource",
+                "required": [
+                    "field_id",
+                    "original_key",
+                    "type",
+                    "type_label",
+                    "type_group",
+                    "token",
+                    "is_custom",
+                    "split_delimiter",
+                    "rebuild_pending",
+                    "sample_values"
+                ],
                 "properties": {
                     "field_id": {
                         "type": "string",
@@ -2985,7 +3233,46 @@
                     },
                     "type": {
                         "type": "string",
-                        "example": "title"
+                        "example": "title",
+                        "enum": [
+                            "title",
+                            "url",
+                            "image",
+                            "price",
+                            "sale_price",
+                            "brand",
+                            "category",
+                            "description",
+                            "identifier",
+                            "sku",
+                            "attribute",
+                            "availability",
+                            "boolean",
+                            "size",
+                            "barcode",
+                            "color",
+                            "mpn",
+                            "number",
+                            "no_index"
+                        ]
+                    },
+                    "type_label": {
+                        "description": "The type's name for display",
+                        "type": "string",
+                        "example": "Title"
+                    },
+                    "type_group": {
+                        "type": "string",
+                        "example": "content",
+                        "enum": [
+                            "content",
+                            "commerce",
+                            "taxonomy",
+                            "media",
+                            "identifiers",
+                            "metadata",
+                            "special"
+                        ]
                     },
                     "token": {
                         "type": [

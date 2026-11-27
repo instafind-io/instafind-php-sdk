@@ -31,7 +31,8 @@ use PHPUnit\Framework\TestCase;
  * - every request the SDK sends is an operation of the document, with
  *   query parameters the operation declares;
  * - every operation of the document is one the SDK calls;
- * - the response fields the typed objects read are in the document's schemas.
+ * - the top-level response fields the typed objects read are in the
+ *   document's schemas (nested fields are not checked).
  *
  * Where the document lags behind the backend, the gap is listed below and the
  * test fails once the document closes it, so the list stays true.
@@ -45,18 +46,19 @@ final class OpenApiContractTest extends TestCase
      * per "METHOD path". The backend accepts them (SearchController,
      * CampaignSearchController).
      */
-    private const UNDECLARED_PARAMETERS = [
-        'GET /api/public/v1/search' => ['page', 'sid'],
-        'GET /api/public/v1/search/campaign' => ['sort', 'order', 'facets', 'facet_size', 'facet_sort', 'strict', 'sid'],
-    ];
+    private const UNDECLARED_PARAMETERS = [];
 
     /**
      * Response fields the SDK reads that a schema does not list yet. The
-     * backend sends them (FieldDefinitionResource).
+     * backend sends them.
      */
-    private const UNDOCUMENTED_FIELDS = [
-        'FieldDefinitionResource' => ['type_label', 'type_group'],
-    ];
+    private const UNDOCUMENTED_FIELDS = [];
+
+    /**
+     * The fields sendEverything() filters on (`brand[]=`, `price[]=`). Field
+     * filters are open-ended, so the document cannot declare them.
+     */
+    private const FIELD_FILTERS = ['brand', 'price'];
 
     /** Schema => the fields the SDK's typed objects read. */
     private const FIELDS_READ = [
@@ -93,7 +95,7 @@ final class OpenApiContractTest extends TestCase
             $called[$operation['key']] = true;
 
             parse_str($parts['query'] ?? '', $query);
-            $undeclared = self::UNDECLARED_PARAMETERS[$operation['key']] ?? [];
+            $undeclared = self::gaps(self::UNDECLARED_PARAMETERS, $operation['key']);
             foreach (array_keys($query) as $name) {
                 $name = (string) $name;
                 $declared = in_array($name, $operation['parameters'], true) || in_array($name . '[]', $operation['parameters'], true);
@@ -101,8 +103,7 @@ final class OpenApiContractTest extends TestCase
                     self::assertNotContains($name, $undeclared, "The document now declares $name on {$operation['key']}: remove it from UNDECLARED_PARAMETERS.");
                     continue;
                 }
-                // Field filters (`brand[]=…`) are open-ended; the document cannot list them.
-                if (is_array($query[$name]) && array_is_list($query[$name])) {
+                if (in_array($name, self::FIELD_FILTERS, true) && is_array($query[$name]) && array_is_list($query[$name])) {
                     continue;
                 }
                 self::assertContains($name, $undeclared, "{$operation['key']} does not declare the query parameter $name.");
@@ -120,7 +121,7 @@ final class OpenApiContractTest extends TestCase
         foreach (self::FIELDS_READ as $schema => $fields) {
             self::assertIsArray($schemas[$schema] ?? null, "The document has no schema $schema.");
             $properties = array_keys(is_array($schemas[$schema]['properties'] ?? null) ? $schemas[$schema]['properties'] : []);
-            $gaps = self::UNDOCUMENTED_FIELDS[$schema] ?? [];
+            $gaps = self::gaps(self::UNDOCUMENTED_FIELDS, $schema);
             foreach ($fields as $field) {
                 if (in_array($field, $properties, true)) {
                     self::assertNotContains($field, $gaps, "$schema now documents $field: remove it from UNDOCUMENTED_FIELDS.");
@@ -235,6 +236,18 @@ final class OpenApiContractTest extends TestCase
         }
 
         return $out;
+    }
+
+    /**
+     * The entries of a gap list for one operation or schema.
+     *
+     * @param array<string, list<string>> $list
+     *
+     * @return list<string>
+     */
+    private static function gaps(array $list, string $key): array
+    {
+        return $list[$key] ?? [];
     }
 
     /**
