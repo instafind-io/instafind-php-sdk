@@ -65,8 +65,11 @@ cleanup() {
 }
 trap cleanup EXIT
 git clone --quiet --no-tags --branch main --single-branch "$origin_url" "$tree"
-# The release goes where this checkout pushes, as from a worktree.
-git -C "$tree" remote set-url --push origin "$(git remote get-url --push origin)"
+# The release goes where this checkout pushes, as from a worktree: every
+# pushurl, else the URL it was cloned from.
+while IFS= read -r push_url; do
+    git -C "$tree" config --add remote.origin.pushurl "$push_url"
+done < <(git config --get-all remote.origin.pushurl || true)
 if [[ -n "$latest" ]]; then
     git -C "$tree" fetch --quiet --no-tags origin "refs/tags/$latest:refs/tags/$latest"
 fi
