@@ -20,6 +20,9 @@ export TMPDIR="$base/tmp"
 mkdir "$TMPDIR"
 # The origin here is a bare repository, not GitHub; the guard is tested below.
 export RELEASE_ALLOW_ANY_ORIGIN=1
+# Only the test's own git config, as in CI, whatever this machine has globally.
+: > "$base/gitconfig"
+export GIT_CONFIG_GLOBAL="$base/gitconfig" GIT_CONFIG_NOSYSTEM=1
 export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=test@example.invalid GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=test@example.invalid
 
 failures=0
@@ -119,13 +122,17 @@ git config remote.origin.pushurl https://example.com/elsewhere.git
 expect "a push URL elsewhere is refused" 1 "origin's push URL is https://example\.com/elsewhere\.git" -- env RELEASE_ALLOW_ANY_ORIGIN= scripts/release.sh patch
 git config --unset remote.origin.pushurl
 git remote set-url origin "$base/origin.git"
+git remote set-url origin https://user:s3cret@example.com/x.git
+expect "a refused URL is shown without its credentials" 1 "fetch URL is https://\*\*\*@example\.com/x\.git" -- env RELEASE_ALLOW_ANY_ORIGIN= scripts/release.sh patch
+[[ "$(env RELEASE_ALLOW_ANY_ORIGIN= scripts/release.sh patch 2>&1)" != *s3cret* ]] || fail "a refused URL shows its token"
+git remote set-url origin "$base/origin.git"
 git config --add remote.origin.url "$base/other.git"
 expect "an origin with two URLs is refused" 1 'origin has 2 URLs' -- scripts/release.sh patch
 git config --unset remote.origin.url "$base/other\.git"
-# alias: becomes the GitHub URL in this checkout, which the clone rewrites again
-# to the throwaway origin. GIT_SSH_COMMAND=false keeps ls-remote off the network.
+# alias: becomes the GitHub URL in this checkout, which the clone would rewrite
+# again to elsewhere.git; it does not exist, so cloning it would exit 128. GIT_SSH_COMMAND=false keeps ls-remote off the network.
 git remote set-url origin alias:instafind-io/instafind-php-sdk.git
-expect "a URL that global insteadOf rewrites again in the clone is checked there" 1 "fetch URL is $base/origin\.git" -- env RELEASE_ALLOW_ANY_ORIGIN= GIT_SSH_COMMAND=false GIT_CONFIG_COUNT=2 GIT_CONFIG_KEY_0=url.ssh://git@github.com/.insteadOf GIT_CONFIG_VALUE_0=alias: GIT_CONFIG_KEY_1="url.$base/origin.git.insteadOf" GIT_CONFIG_VALUE_1=ssh://git@github.com/instafind-io/instafind-php-sdk.git scripts/release.sh major
+expect "a URL that global insteadOf rewrites again in the clone is refused before cloning" 1 "fetch URL is $base/elsewhere\.git" -- env RELEASE_ALLOW_ANY_ORIGIN= GIT_SSH_COMMAND=false GIT_CONFIG_COUNT=2 GIT_CONFIG_KEY_0=url.ssh://git@github.com/.insteadOf GIT_CONFIG_VALUE_0=alias: GIT_CONFIG_KEY_1="url.$base/elsewhere.git.insteadOf" GIT_CONFIG_VALUE_1=ssh://git@github.com/instafind-io/instafind-php-sdk.git scripts/release.sh major
 git remote set-url origin "$base/origin.git"
 expect "a global clone.defaultRemoteName does not rename the clone's remote" 0 '^v1\.0\.0 -> v2\.0\.0$' -- env GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=clone.defaultRemoteName GIT_CONFIG_VALUE_0=upstream scripts/release.sh major
 
@@ -134,9 +141,10 @@ git config user.name "Local Only"
 git config user.email local@example.invalid
 expect "an identity the clone would not have is refused" 1 "GIT_COMMITTER_IDENT would be" -- env -u GIT_COMMITTER_NAME -u GIT_COMMITTER_EMAIL scripts/release.sh patch
 git config --unset user.name && git config --unset user.email
+git config author.name "Local Only"
 git config author.email local@example.invalid
 expect "an author the clone would not have is refused" 1 "GIT_AUTHOR_IDENT would be" -- env -u GIT_AUTHOR_NAME -u GIT_AUTHOR_EMAIL scripts/release.sh patch
-git config --unset author.email
+git config --unset author.name && git config --unset author.email
 git config tag.gpgSign true
 expect "signing only this checkout has is refused" 1 "This checkout's tag.gpgSign is 'true'" -- scripts/release.sh patch
 git config --unset tag.gpgSign
@@ -154,10 +162,10 @@ fi
 [[ -z "$(ls -A "$TMPDIR")" ]] || fail "temporary files were left: $(ls -A "$TMPDIR")"
 [[ "$(git -C "$base/origin.git" tag -l)" == "v1.0.0" ]] || fail "origin got tags: $(git -C "$base/origin.git" tag -l | tr '\n' ' ')"
 
-# --push, with a stub gh that reports a green live integration run: main and
+# --push, with a stub gh whose newest finished live integration run passed: main and
 # the tag go to every push URL, and the checkout still gets nothing.
 mkdir "$base/bin"
-printf '#!/bin/sh\necho 1\n' > "$base/bin/gh"
+printf '#!/bin/sh\necho success\n' > "$base/bin/gh"
 chmod +x "$base/bin/gh"
 git init --quiet --bare "$base/mirror.git"
 git config --add remote.origin.pushurl "$base/origin.git"

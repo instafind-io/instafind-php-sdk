@@ -49,7 +49,8 @@ done
 github='^(https://github\.com/|git@github\.com:|ssh://git@github\.com/)instafind-io/instafind-php-sdk(\.git)?/?$'
 check_url() {
     if [[ "${RELEASE_ALLOW_ANY_ORIGIN:-}" != "1" && ! "$1" =~ $github ]]; then
-        echo "origin's $2 URL is $1, not instafind-io/instafind-php-sdk on GitHub. Release from a plain clone of it." >&2
+        # Without a user or token in it: the message may end up in a log.
+        echo "origin's $2 URL is $(sed -E 's|^([a-z+]+://)[^/@]*@|\1***@|' <<< "$1"), not instafind-io/instafind-php-sdk on GitHub. Release from a plain clone of it." >&2
         exit 1
     fi
 }
@@ -96,6 +97,10 @@ cleanup() {
     rm -rf "$tree"
 }
 trap cleanup EXIT
+# Global insteadOf rules apply again in the clone, to a URL already rewritten
+# above. Check the URL the clone will fetch from before it goes over the network:
+# expanded outside any repository, so with the global rules only.
+check_url "$(cd "$tree" && GIT_CEILING_DIRECTORIES="$(dirname "$tree")" git ls-remote --get-url "$origin_url")" fetch
 # --origin: a global clone.defaultRemoteName must not rename the remote.
 git clone --quiet --no-tags --origin origin --branch main --single-branch "$origin_url" "$tree"
 # The release goes where this checkout pushes, as from a worktree: every push
@@ -105,8 +110,7 @@ for push_url in "${push_urls[@]}"; do
         git -C "$tree" config --add remote.origin.pushurl "$push_url"
     fi
 done
-# Global insteadOf rules apply again in the clone, to URLs already rewritten
-# above: check the URLs the clone itself will use.
+# And the URLs the clone itself will push to (pushInsteadOf included).
 while IFS= read -r url; do check_url "$url" fetch; done < <(git -C "$tree" remote get-url --all origin)
 while IFS= read -r url; do check_url "$url" push; done < <(git -C "$tree" remote get-url --push --all origin)
 if [[ -n "$latest" ]]; then
