@@ -24,8 +24,14 @@ final class SearchQuery
         'product', 'fill', 'preview', 'picks_ignore',
     ];
 
+    /** The `facet_size[...]` key of the size for facets without their own. */
+    private const ALL_FACETS = '*';
+
     /** @var array<string, mixed> */
     private array $params = [];
+
+    /** @var array<string, int> by field, {@see self::ALL_FACETS} for the others */
+    private array $facetSizes = [];
 
     private function __construct(private readonly string $text) {}
 
@@ -83,19 +89,20 @@ final class SearchQuery
 
     /**
      * Buckets per facet, 1–1000; for one field only when `$field` is given.
+     * A field's own size and the size for all others can be combined.
      */
     public function facetSize(int $size, ?string $field = null): self
     {
         if ($size < 1 || $size > 1000) {
             throw new \InvalidArgumentException('The facet size must be between 1 and 1000.');
         }
-        if ($field === null) {
-            return $this->with('facet_size', $size);
+        if ($field === '' || $field === self::ALL_FACETS) {
+            throw new \InvalidArgumentException("'$field' is not a facet field.");
         }
-        $sizes = is_array($this->params['facet_size'] ?? null) ? $this->params['facet_size'] : [];
-        $sizes[$field] = $size;
+        $clone = clone $this;
+        $clone->facetSizes[$field ?? self::ALL_FACETS] = $size;
 
-        return $this->with('facet_size', $sizes);
+        return $clone;
     }
 
     public function facetSort(FacetSort $sort): self
@@ -109,13 +116,21 @@ final class SearchQuery
         return $this->with('highlight', $highlight ? 1 : null);
     }
 
-    /** Match only what was typed: no typo tolerance, no dropped words. */
+    /**
+     * Refuse the search (422 `filters_not_applied`) instead of answering
+     * without a filter or the sort the API cannot apply. It does not change
+     * how the text is matched.
+     */
     public function strict(bool $strict = true): self
     {
         return $this->with('strict', $strict ? 1 : null);
     }
 
-    /** Browse the catalogue (a category page): no text, no zero-result logging. */
+    /**
+     * List the catalogue (a category page) without text, filters or sort,
+     * which would otherwise be a health check. With text it changes nothing;
+     * with a filter or sort, a query without text lists products anyway.
+     */
     public function browse(bool $browse = true): self
     {
         return $this->with('browse', $browse ? 1 : null);
@@ -172,6 +187,10 @@ final class SearchQuery
     public function toArray(): array
     {
         $named = ($this->text === '' ? [] : ['q' => $this->text]) + $this->params;
+        if ($this->facetSizes !== []) {
+            // One size for all facets stays the plain `facet_size=`.
+            $named['facet_size'] = array_keys($this->facetSizes) === [self::ALL_FACETS] ? $this->facetSizes[self::ALL_FACETS] : $this->facetSizes;
+        }
 
         return array_filter($named + $this->filterParams(), static fn(mixed $v): bool => $v !== null);
     }

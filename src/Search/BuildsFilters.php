@@ -14,7 +14,7 @@ trait BuildsFilters
     /** @var array<string, list<string>> */
     private array $filters = [];
 
-    /** @var array<string, list<string>> */
+    /** @var array<string, string> one `min-max` per field */
     private array $ranges = [];
 
     /** @var array<string, mixed> */
@@ -22,7 +22,7 @@ trait BuildsFilters
 
     /**
      * Keep products whose field has one of these values. Replaces an earlier
-     * filter on the same field, but not its ranges.
+     * filter or range on the same field.
      *
      * @param array<string|int|float> $values
      */
@@ -31,13 +31,16 @@ trait BuildsFilters
         self::assertField($field);
         $clone = clone $this;
         $clone->filters[$field] = array_values(array_map(self::format(...), $values));
+        unset($clone->ranges[$field]);
 
         return $clone;
     }
 
     /**
      * Keep products whose numeric field lies between min and max (inclusive);
-     * null leaves that side open. Bounds are 0 or more.
+     * null leaves that side open. Bounds are 0 or more. The API takes one
+     * range per field and no values beside it, so this replaces an earlier
+     * range or filter on the same field.
      */
     public function range(string $field, int|float|null $min, int|float|null $max): static
     {
@@ -49,8 +52,12 @@ trait BuildsFilters
             // The API reads `min-max`, so a minus sign would be the separator.
             throw new \InvalidArgumentException("A range on '$field' cannot have negative bounds.");
         }
+        if ($min !== null && $max !== null && $min > $max) {
+            throw new \InvalidArgumentException("A range on '$field' cannot have its minimum above its maximum.");
+        }
         $clone = clone $this;
-        $clone->ranges[$field][] = ($min === null ? '' : self::format($min)) . '-' . ($max === null ? '' : self::format($max));
+        unset($clone->filters[$field]);
+        $clone->ranges[$field] = ($min === null ? '' : self::format($min)) . '-' . ($max === null ? '' : self::format($max));
 
         return $clone;
     }
@@ -73,12 +80,12 @@ trait BuildsFilters
      */
     private function filterParams(): array
     {
-        $fields = [];
-        foreach (array_unique(array_merge(array_keys($this->filters), array_keys($this->ranges))) as $field) {
-            $fields[$field] = array_merge($this->filters[$field] ?? [], $this->ranges[$field] ?? []);
+        $fields = $this->filters;
+        foreach ($this->ranges as $field => $range) {
+            $fields[$field] = [$range];
         }
 
-        return $this->extra + $fields;
+        return $fields + $this->extra;
     }
 
     private static function assertField(string $field): void

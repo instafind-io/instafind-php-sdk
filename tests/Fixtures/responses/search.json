@@ -8,7 +8,7 @@
       ]
     },
     "aggregations": {
-      "brand_facet": {"buckets": [{"key": "Asics", "doc_count": 30}, {"key": "Nike", "doc_count": 12, "subtitle": "USA"}], "sum_other_doc_count": 3},
+      "brand_facet": {"buckets": [{"key": "Asics", "doc_count": 30}, {"key": "Nike", "doc_count": 12, "label": "Nike Inc.", "subtitle": "USA"}], "sum_other_doc_count": 3},
       "min_price": {"value": 19.5},
       "max_price": {"value": 240}
     }

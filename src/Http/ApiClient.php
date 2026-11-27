@@ -68,6 +68,10 @@ final class ApiClient
      */
     public function request(string $method, string $path, array $query = [], ?array $json = null, ?float $timeout = null, ?bool $idempotent = null, ?array $form = null): Request
     {
+        if ($timeout !== null && $timeout <= 0) {
+            // cURL reads 0 as no timeout at all.
+            throw new \InvalidArgumentException('The timeout must be more than 0 seconds.');
+        }
         $headers = [
             'Accept' => 'application/json',
             'User-Agent' => $this->userAgent->toString(),

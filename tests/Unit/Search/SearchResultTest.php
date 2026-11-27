@@ -30,9 +30,13 @@ final class SearchResultTest extends TestCase
         self::assertSame('Nike', $brand->buckets()[1]->value());
         self::assertSame(12, $brand->buckets()[1]->count());
         self::assertSame('USA', $brand->buckets()[1]->subtitle());
+        self::assertSame('Nike Inc.', $brand->buckets()[1]->label());
+        self::assertNull($brand->buckets()[0]->label());
+        self::assertSame(12, $brand->buckets()[1]->raw()['doc_count']);
 
         self::assertSame(19.5, $result->ranges()['price']->min());
         self::assertSame(240.0, $result->ranges()['price']->max());
+        self::assertSame(['min_price' => ['value' => 19.5], 'max_price' => ['value' => 240]], $result->ranges()['price']->raw());
         self::assertSame('<p>Sale</p>', $result->banners()[0]->html());
         self::assertNull($result->redirect());
         self::assertSame(['cheap'], $result->queryUsed()?->droppedWords());
@@ -57,6 +61,16 @@ final class SearchResultTest extends TestCase
         self::assertTrue($result->isEmpty());
         self::assertSame('index_disabled', $result->reason());
         self::assertNull($result->queryUsed());
+        self::assertTrue($result->totalIsExact());
+    }
+
+    public function testAnAnswerWithoutACountIsALowerBound(): void
+    {
+        // Image search sends no `hits.total`.
+        $result = new SearchResult(['results' => ['hits' => ['hits' => [['_source' => ['id' => 'a']], ['_source' => ['id' => 'b']]]]]]);
+
+        self::assertSame(2, $result->total());
+        self::assertFalse($result->totalIsExact());
     }
 
     public function testACampaignWrapsItsSearch(): void

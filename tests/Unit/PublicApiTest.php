@@ -64,17 +64,10 @@ final class PublicApiTest extends TestCase
         }
     }
 
-    public function testImageSearchMapsItsNotFoundToo(): void
+    public function testAnotherNotFoundIsNotAboutTheIndex(): void
     {
-        $this->transport->queueJson(404, ['error' => 'index_not_found', 'message' => 'Index not found.']);
-
-        $this->expectException(IndexNotFoundException::class);
-        $this->api->imageSearch(self::INDEX, 'p1');
-    }
-
-    public function testOnlyTheErrorCodeMeansAMissingIndex(): void
-    {
-        $this->transport->queueJson(404, ['results' => ['error' => 'ID not found']]);
+        // A wrong base URL, or a server without the v1 routes.
+        $this->transport->queueJson(404, ['message' => 'Not Found']);
 
         try {
             $this->api->search(self::INDEX, SearchQuery::text('x'));
@@ -83,6 +76,25 @@ final class PublicApiTest extends TestCase
             self::assertNotInstanceOf(IndexNotFoundException::class, $e);
             self::assertSame(404, $e->status());
         }
+    }
+
+    public function testATimeoutOfZeroIsRefused(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->api->search(self::INDEX, SearchQuery::text('x'), 0.0);
+    }
+
+    public function testImageSearchRefusesWhatItsEndpointWould(): void
+    {
+        foreach ([SearchQuery::text()->limit(0), SearchQuery::text()->limit(100)->page(12)] as $i => $query) {
+            try {
+                $this->api->imageSearch(self::INDEX, 'p1', $query);
+                self::fail("Case $i was accepted.");
+            } catch (\InvalidArgumentException) {
+                $this->addToAssertionCount(1);
+            }
+        }
+        self::assertSame([], $this->transport->requests());
     }
 
     public function testNothingIsRetriedByDefault(): void

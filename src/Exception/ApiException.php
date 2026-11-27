@@ -73,8 +73,8 @@ class ApiException extends InstafindException
 
         $retryAfter = self::parseRetryAfter($response->header('retry-after'));
 
-        // Only this code names the index on every route; the API classes map
-        // the routes where a plain 404 means the index too.
+        // Only this code names the index; another 404 (a wrong base URL, an
+        // unknown product) is not about the index.
         if ($status === 404 && $code === 'index_not_found') {
             return new IndexNotFoundException($message, $status, $code, $retryAfter, $response->body());
         }

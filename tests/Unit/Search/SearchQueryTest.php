@@ -23,7 +23,6 @@ final class SearchQueryTest extends TestCase
             ->context(SearchContext::Dropdown)
             ->filter('brand', ['Asics', 'Nike'])
             ->range('price', 10, 49.5)
-            ->filter('price', [5])
             ->facets(['brand', 'color'])
             ->facetSize(20)
             ->facetSort(FacetSort::Key)
@@ -33,8 +32,8 @@ final class SearchQueryTest extends TestCase
             ->param('merchandising', 2);
 
         self::assertSame(
-            'q=shoes&limit=24&page=2&sort=price&order=desc&context=dropdown&facets=brand%2Ccolor&facet_size=20&facet_sort=key&highlight=1&category_matches=3&sid=s-1'
-            . '&merchandising=2&brand[]=Asics&brand[]=Nike&price[]=5&price[]=10-49.5',
+            'q=shoes&limit=24&page=2&sort=price&order=desc&context=dropdown&facets=brand%2Ccolor&facet_sort=key&highlight=1&category_matches=3&sid=s-1'
+            . '&facet_size=20&brand[]=Asics&brand[]=Nike&price[]=10-49.5&merchandising=2',
             Query::build($query->toArray()),
         );
         self::assertSame(24, $query->getLimit());
@@ -56,6 +55,25 @@ final class SearchQueryTest extends TestCase
         self::assertSame('facet_size[brand]=5&facet_size[size]=9&price[]=-50&weight[]=1.25-', Query::build($query->toArray()));
     }
 
+    public function testAGlobalAndAPerFieldFacetSizeCombine(): void
+    {
+        $expected = 'facet_size[%2A]=10&facet_size[brand]=500';
+        self::assertSame($expected, Query::build(SearchQuery::text()->facetSize(10)->facetSize(500, 'brand')->toArray()));
+        self::assertSame('facet_size[brand]=500&facet_size[%2A]=10', Query::build(SearchQuery::text()->facetSize(500, 'brand')->facetSize(10)->toArray()));
+    }
+
+    public function testAFieldHasOneRangeOrOneFilter(): void
+    {
+        self::assertSame('price[]=60-', Query::build(SearchQuery::text()->range('price', 10, 50)->range('price', 60, null)->toArray()));
+        self::assertSame('price[]=10-50', Query::build(SearchQuery::text()->filter('price', [5])->range('price', 10, 50)->toArray()));
+        self::assertSame('price[]=5', Query::build(SearchQuery::text()->range('price', 10, 50)->filter('price', [5])->toArray()));
+    }
+
+    public function testNamedFiltersWinOverParam(): void
+    {
+        self::assertSame('brand[]=New', Query::build(SearchQuery::text()->param('brand', ['Old'])->filter('brand', ['New'])->toArray()));
+    }
+
     public function testTurningAFlagOffRemovesIt(): void
     {
         self::assertSame([], SearchQuery::text()->strict()->strict(false)->toArray());
@@ -69,6 +87,8 @@ final class SearchQueryTest extends TestCase
             static fn() => SearchQuery::text()->page(0),
             static fn() => SearchQuery::text()->range('price', null, null),
             static fn() => SearchQuery::text()->range('price', -5, 10),
+            static fn() => SearchQuery::text()->range('price', 120, 50),
+            static fn() => SearchQuery::text()->facetSize(5, '*'),
             static fn() => SearchQuery::text()->facetSize(0),
             static fn() => SearchQuery::text()->categoryMatches(11),
         ] as $i => $build) {

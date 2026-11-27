@@ -19,16 +19,23 @@ final class SearchResult
      */
     public function __construct(private readonly array $raw) {}
 
-    /** Matching products in all pages. */
+    /**
+     * Matching products in all pages. An answer without a count (image
+     * search) gives the hits of this page, as a lower bound.
+     */
     public function total(): int
     {
-        return Data::int(Data::map($this->hitsEnvelope(), 'total'), 'value');
+        $total = Data::map($this->hitsEnvelope(), 'total');
+
+        return $total === [] ? count(Data::maps($this->hitsEnvelope(), 'hits')) : Data::int($total, 'value');
     }
 
     /** Whether {@see self::total()} is exact rather than a lower bound. */
     public function totalIsExact(): bool
     {
-        return Data::string(Data::map($this->hitsEnvelope(), 'total'), 'relation', 'eq') === 'eq';
+        $total = Data::map($this->hitsEnvelope(), 'total');
+
+        return $total === [] ? $this->isEmpty() : Data::string($total, 'relation', 'eq') === 'eq';
     }
 
     /**
@@ -88,11 +95,7 @@ final class SearchResult
         $out = [];
         foreach (array_keys($fields) as $field) {
             $field = (string) $field;
-            $out[$field] = new Range(
-                $field,
-                Data::floatOrNull(Data::map($aggregations, 'min_' . $field), 'value'),
-                Data::floatOrNull(Data::map($aggregations, 'max_' . $field), 'value'),
-            );
+            $out[$field] = new Range($field, array_intersect_key($aggregations, ['min_' . $field => true, 'max_' . $field => true]));
         }
 
         return $out;

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Instafind\Sdk;
 
+use Instafind\Sdk\Exception\ApiException;
 use Instafind\Sdk\Exception\IndexNotFoundException;
 use Instafind\Sdk\Exception\InstafindException;
 use Instafind\Sdk\Http\ApiClient;
@@ -32,16 +33,19 @@ use Instafind\Sdk\Support\Data;
  * takes an optional `$timeout` for that call alone.
  *
  * On the routes that name an index (search, campaign, product suggestions,
- * image search), an index Instafind does not have answers 404
- * `index_not_found` and throws {@see IndexNotFoundException}. Suggestions,
- * snippets, facet config and keywords answer empty for an unknown index, by
- * design.
+ * image search), an unknown or disabled-for-search index throws
+ * {@see IndexNotFoundException}: the API answers 404 `index_not_found`. Any
+ * other 404, such as a wrong base URL, stays an {@see ApiException}. Suggestions, snippets, facet config and
+ * keywords answer empty for an unknown index, by design.
  */
 final class PublicApi
 {
     public const BASE_PATH = '/api/public/v1';
 
     public const DEFAULT_TIMEOUT = 5.0;
+
+    /** The furthest offset image search pages to. */
+    private const IMAGE_SEARCH_MAX_OFFSET = 1000;
 
     private readonly ApiClient $api;
 
@@ -164,8 +168,9 @@ final class PublicApi
     /**
      * Products that look like this one: its image is the query. The product
      * itself comes first. The query's text is ignored; its limit (1–100),
-     * page, sort and filters apply.
+     * page (to the 1,000th product), sort and filters apply.
      *
+     * @throws \InvalidArgumentException for a limit of 0 or a page past the 1,000th product
      * @throws IndexNotFoundException
      * @throws InstafindException
      */
@@ -173,9 +178,16 @@ final class PublicApi
     {
         $params = $query === null ? [] : $query->toArray();
         unset($params['q'], $params['page']);
+        $limit = $query?->getLimit();
+        if ($limit === 0) {
+            throw new \InvalidArgumentException('Image search needs a limit of at least 1.');
+        }
         $page = $query?->getPage();
         if ($page !== null && $page > 1) {
-            $params['offset'] = ($page - 1) * ($query->getLimit() ?? 10);
+            $params['offset'] = ($page - 1) * ($limit ?? 10);
+            if ($params['offset'] > self::IMAGE_SEARCH_MAX_OFFSET) {
+                throw new \InvalidArgumentException('Image search ends at the ' . self::IMAGE_SEARCH_MAX_OFFSET . 'th product.');
+            }
         }
 
         $request = $this->api->request('GET', self::BASE_PATH . '/search/image', ['id' => $indexId, 'q' => $productId] + $params, null, $timeout);
@@ -275,11 +287,7 @@ final class PublicApi
     {
         $out = [];
         foreach ($this->api->sendMany($requests) as $key => $answer) {
-            if ($answer instanceof InstafindException) {
-                $out[$key] = $answer;
-            } else {
-                $out[$key] = $wrap(self::asMap($answer));
-            }
+            $out[$key] = $answer instanceof InstafindException ? $answer : $wrap(self::asMap($answer));
         }
 
         return $out;

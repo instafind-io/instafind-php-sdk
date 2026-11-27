@@ -30,7 +30,7 @@ final class Facet
     {
         $out = [];
         foreach (Data::maps($this->raw, 'buckets') as $bucket) {
-            $out[] = new FacetBucket(Data::string($bucket, 'key'), Data::int($bucket, 'doc_count'), Data::stringOrNull($bucket, 'subtitle'));
+            $out[] = new FacetBucket($bucket);
         }
 
         return $out;
