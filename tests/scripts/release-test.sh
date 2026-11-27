@@ -17,6 +17,8 @@ trap 'rm -rf "$base"' EXIT
 # release.sh's own mktemp lands here, so the test can see it cleaned up.
 export TMPDIR="$base/tmp"
 mkdir "$TMPDIR"
+# The origin here is a bare repository, not GitHub; the guard is tested below.
+export RELEASE_ALLOW_ANY_ORIGIN=1
 export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=test@example.invalid GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=test@example.invalid
 
 failures=0
@@ -100,6 +102,32 @@ expect "a breaking change takes major" 0 '^v1\.0\.0 -> v2\.0\.0$' -- scripts/rel
 git tag v9.9.9
 expect "a stray local tag is ignored" 0 '^v1\.0\.0 -> v2\.0\.0$' -- scripts/release.sh major
 git tag -d v9.9.9 > /dev/null
+
+# The guards: where the release could go, and what the clone's git acts on.
+expect "an exported GIT_DIR is refused" 1 'GIT_DIR is set' -- env GIT_DIR="$base/work/.git" scripts/release.sh patch
+expect "an exported GIT_WORK_TREE is refused" 1 'GIT_WORK_TREE is set' -- env GIT_WORK_TREE="$base/work" scripts/release.sh patch
+expect "an origin that is not the GitHub repository is refused" 1 "origin's fetch URL is $base/origin\.git, not instafind-io/instafind-php-sdk on GitHub" -- env RELEASE_ALLOW_ANY_ORIGIN= scripts/release.sh patch
+git remote set-url origin https://github.com/instafind-io/instafind-php-sdk.git
+git config "url.$base/origin.git.insteadOf" https://github.com/instafind-io/instafind-php-sdk.git
+expect "a GitHub URL rewritten by insteadOf is checked as rewritten" 1 "fetch URL is $base/origin\.git" -- env RELEASE_ALLOW_ANY_ORIGIN= scripts/release.sh patch
+git config --unset "url.$base/origin.git.insteadOf"
+git remote set-url origin "$base/origin.git"
+# The URL checks run before anything goes over the network.
+git remote set-url origin git@github.com:instafind-io/instafind-php-sdk.git
+git config remote.origin.pushurl https://example.com/elsewhere.git
+expect "a push URL elsewhere is refused" 1 "origin's push URL is https://example\.com/elsewhere\.git" -- env RELEASE_ALLOW_ANY_ORIGIN= scripts/release.sh patch
+git config --unset remote.origin.pushurl
+git remote set-url origin "$base/origin.git"
+git config --add remote.origin.url "$base/other.git"
+expect "an origin with two URLs is refused" 1 'origin has 2 URLs' -- scripts/release.sh patch
+git config --unset remote.origin.url "$base/other\.git"
+expect "a global clone.defaultRemoteName does not rename the clone's remote" 0 '^v1\.0\.0 -> v2\.0\.0$' -- env GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=clone.defaultRemoteName GIT_CONFIG_VALUE_0=upstream scripts/release.sh major
+
+# An identity only this checkout has (includeIf, or .git/config) would not reach the clone.
+git config user.name "Local Only"
+git config user.email local@example.invalid
+expect "an identity the clone would not have is refused" 1 'would commit as' -- env -u GIT_COMMITTER_NAME -u GIT_COMMITTER_EMAIL scripts/release.sh patch
+git config --unset user.name && git config --unset user.email
 
 # The owner's rule: no hand-made worktrees, so the script clones instead.
 if grep -qE '^[^#]*git[^#]*worktree' "$repo/scripts/release.sh"; then

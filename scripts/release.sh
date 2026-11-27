@@ -33,7 +33,39 @@ if [[ -z "$bump" ]]; then
     exit 2
 fi
 
-origin_url=$(git remote get-url origin)
+# git commands in the clone must act on the clone: an exported GIT_DIR or
+# GIT_WORK_TREE would point them at the caller's repository.
+for var in GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE; do
+    if [[ -n "${!var:-}" ]]; then
+        echo "$var is set in the environment; unset it and run this again." >&2
+        exit 1
+    fi
+done
+
+# The release goes to this repository on GitHub and nowhere else: one fetch
+# URL, and push URLs that all name it. get-url applies insteadOf rewrites, so a
+# rewritten URL is checked as it will be used. RELEASE_ALLOW_ANY_ORIGIN=1 is for
+# tests/scripts/release-test.sh, which releases into a throwaway origin.
+github='^(https://github\.com/|git@github\.com:|ssh://git@github\.com/)instafind-io/instafind-php-sdk(\.git)?/?$'
+check_url() {
+    if [[ "${RELEASE_ALLOW_ANY_ORIGIN:-}" != "1" && ! "$1" =~ $github ]]; then
+        echo "origin's $2 URL is $1, not instafind-io/instafind-php-sdk on GitHub. Release from a plain clone of it." >&2
+        exit 1
+    fi
+}
+fetch_urls=()
+while IFS= read -r url; do fetch_urls+=("$url"); done < <(git remote get-url --all origin)
+if [[ ${#fetch_urls[@]} -ne 1 ]]; then
+    echo "origin has ${#fetch_urls[@]} URLs; release from a checkout whose origin has one." >&2
+    exit 1
+fi
+origin_url=${fetch_urls[0]}
+check_url "$origin_url" fetch
+push_urls=()
+while IFS= read -r url; do push_urls+=("$url"); done < <(git remote get-url --push --all origin)
+for push_url in "${push_urls[@]}"; do
+    check_url "$push_url" push
+done
 
 # Origin's tags, not local ones: a stray local tag is not a release.
 latest=$(git ls-remote --tags --refs origin 'v*' \
@@ -64,14 +96,27 @@ cleanup() {
     rm -rf "$tree"
 }
 trap cleanup EXIT
-git clone --quiet --no-tags --branch main --single-branch "$origin_url" "$tree"
-# The release goes where this checkout pushes, as from a worktree: every
-# pushurl, else the URL it was cloned from.
-while IFS= read -r push_url; do
-    git -C "$tree" config --add remote.origin.pushurl "$push_url"
-done < <(git config --get-all remote.origin.pushurl || true)
+# --origin: a global clone.defaultRemoteName must not rename the remote.
+git clone --quiet --no-tags --origin origin --branch main --single-branch "$origin_url" "$tree"
+# The release goes where this checkout pushes, as from a worktree: every push
+# URL (checked above), which is the fetch URL when there is no pushurl.
+for push_url in "${push_urls[@]}"; do
+    if [[ "$push_url" != "$origin_url" || ${#push_urls[@]} -gt 1 ]]; then
+        git -C "$tree" config --add remote.origin.pushurl "$push_url"
+    fi
+done
 if [[ -n "$latest" ]]; then
     git -C "$tree" fetch --quiet --no-tags origin "refs/tags/$latest:refs/tags/$latest"
+fi
+
+# The release commit and tag are made in the clone. Config the checkout gets
+# from `includeIf "gitdir:…"` or from its own .git/config does not reach a
+# clone in a temporary directory, so refuse when it would commit as someone else.
+ident() { git "$@" var GIT_COMMITTER_IDENT 2>/dev/null | sed -E 's/ [0-9]+ [-+][0-9]{4}$//'; }
+if [[ "$(ident)" != "$(ident -C "$tree")" ]]; then
+    echo "The temporary clone would commit as '$(ident -C "$tree")', this checkout as '$(ident)'." >&2
+    echo "Set user.name and user.email in your global git config (not per repository or with includeIf), then run this again." >&2
+    exit 1
 fi
 
 changelog="$tree/CHANGELOG.md"
