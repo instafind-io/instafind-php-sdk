@@ -62,10 +62,11 @@ final class ApiClient
     /**
      * A request with the SDK's headers, a JSON body if given, and no credential yet.
      *
-     * @param array<string, mixed>     $query
+     * @param array<string, mixed>         $query
      * @param array<array-key, mixed>|null $json
+     * @param array<string, string>|null   $form a form body instead of JSON
      */
-    public function request(string $method, string $path, array $query = [], ?array $json = null, ?float $timeout = null, ?bool $idempotent = null): Request
+    public function request(string $method, string $path, array $query = [], ?array $json = null, ?float $timeout = null, ?bool $idempotent = null, ?array $form = null): Request
     {
         $headers = [
             'Accept' => 'application/json',
@@ -75,6 +76,9 @@ final class ApiClient
         if ($json !== null) {
             $headers['Content-Type'] = 'application/json';
             $body = self::encode($json);
+        } elseif ($form !== null) {
+            $headers['Content-Type'] = 'application/x-www-form-urlencoded';
+            $body = http_build_query($form, '', '&', PHP_QUERY_RFC3986);
         }
 
         return new Request($method, $this->url($path, $query), $headers, $body, $timeout ?? $this->timeout, $idempotent);

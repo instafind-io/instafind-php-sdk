@@ -12,6 +12,8 @@ namespace Instafind\Sdk\Auth\OAuth;
 final class ConnectionState
 {
     /**
+     * @internal use {@see self::fromTokens()} or {@see self::fromArray()}
+     *
      * @param list<string> $scopes
      * @param string       $lost why Instafind ended the connection (an RFC 6749 error code), '' while it works
      */
@@ -31,7 +33,7 @@ final class ConnectionState
     /** A new connection from the tokens of a code exchange. */
     public static function fromTokens(AuthorizationServer $server, string $clientId, Tokens $tokens): self
     {
-        return new self($server, $clientId, $tokens->accessToken(), $tokens->refreshToken(), $tokens->expiresAt(), $tokens->scopes(), $tokens->websiteId());
+        return new self($server, $clientId, $tokens->accessToken(), $tokens->refreshToken(), $tokens->expiresAtTimestamp(), $tokens->scopes(), $tokens->websiteId());
     }
 
     /**
@@ -91,7 +93,7 @@ final class ConnectionState
             $this->clientId,
             $tokens->accessToken(),
             $tokens->refreshToken(),
-            $tokens->expiresAt(),
+            $tokens->expiresAtTimestamp(),
             $tokens->scopes() !== [] ? $tokens->scopes() : $this->scopes,
             $tokens->websiteId() !== '' ? $tokens->websiteId() : $this->websiteId,
             '',
@@ -124,7 +126,14 @@ final class ConnectionState
         return $this->refreshToken;
     }
 
-    public function expiresAt(): int
+    /** When the access token stops working. */
+    public function expiresAt(): \DateTimeImmutable
+    {
+        return new \DateTimeImmutable('@' . $this->expiresAt);
+    }
+
+    /** {@see self::expiresAt()} as a Unix timestamp. */
+    public function expiresAtTimestamp(): int
     {
         return $this->expiresAt;
     }

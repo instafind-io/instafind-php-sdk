@@ -96,7 +96,7 @@ final class OAuthClientTest extends TestCase
 
         self::assertSame('ifa_a', $tokens->accessToken());
         self::assertSame('ifr_r', $tokens->refreshToken());
-        self::assertSame($clock->now + 3600, $tokens->expiresAt());
+        self::assertSame($clock->now + 3600, $tokens->expiresAtTimestamp());
         self::assertSame(['indexes:manage', 'products:write'], $tokens->scopes());
         self::assertSame('w-1', $tokens->websiteId());
 
@@ -118,7 +118,7 @@ final class OAuthClientTest extends TestCase
 
         $tokens = (new OAuthClient(self::server(), 'c', $transport, 15.0, null, $clock))->refresh('r0');
 
-        self::assertSame($clock->now + 120, $tokens->expiresAt());
+        self::assertSame($clock->now + 120, $tokens->expiresAtTimestamp());
     }
 
     public function testTokenErrorsCarryTheRfcCode(): void

@@ -1,0 +1,24 @@
+{
+  "results": {
+    "hits": {
+      "total": {"value": 42, "relation": "eq"},
+      "hits": [
+        {"_source": {"id": "p1", "title": "Running shoe", "price": 89.9}, "highlight": {"title": ["<strong>Running</strong> shoe"]}},
+        {"_source": {"id": "p2", "title": "Trail shoe", "price": 120}}
+      ]
+    },
+    "aggregations": {
+      "brand_facet": {"buckets": [{"key": "Asics", "doc_count": 30}, {"key": "Nike", "doc_count": 12, "subtitle": "USA"}], "sum_other_doc_count": 3},
+      "min_price": {"value": 19.5},
+      "max_price": {"value": 240}
+    }
+  },
+  "banners": [{"id": "b1", "placement": "band", "position": "top", "slot": null, "html": "<p>Sale</p>"}],
+  "detected": [{"field": "brand", "value": "Asics", "facet_values": ["Asics"], "words": ["asics"], "action": "boost"}],
+  "merchandising": {"facet_ordering": {}, "promoted": [{"id": "p2", "position": 2, "rule_id": "r1", "label": null, "sponsored": false, "sponsor": null}]},
+  "redirect": null,
+  "related": [{"_source": {"id": "p9"}}],
+  "query_used": {"text": "running shoe", "dropped_words": ["cheap"], "corrections": [{"typed": "runing", "shown": "running"}]},
+  "category_matches": [{"value": "c1", "label": "Shoes", "highlight": "<strong>Shoe</strong>s", "path": ["Sport", "Shoes"], "subtitle": null, "count": 40}],
+  "applied": {"filters": ["price"], "ignored": [{"param": "colour", "reason": "unknown_field"}]}
+}

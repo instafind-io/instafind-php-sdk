@@ -11,6 +11,8 @@ namespace Instafind\Sdk\Auth\OAuth;
 final class Tokens
 {
     /**
+     * @internal built by {@see OAuthClient}
+     *
      * @param int          $expiresAt Unix time the access token stops working
      * @param list<string> $scopes
      * @param array<string, mixed> $raw the token response as it arrived
@@ -37,7 +39,14 @@ final class Tokens
         return $this->refreshToken;
     }
 
-    public function expiresAt(): int
+    /** When the access token stops working. */
+    public function expiresAt(): \DateTimeImmutable
+    {
+        return new \DateTimeImmutable('@' . $this->expiresAt);
+    }
+
+    /** {@see self::expiresAt()} as a Unix timestamp. */
+    public function expiresAtTimestamp(): int
     {
         return $this->expiresAt;
     }

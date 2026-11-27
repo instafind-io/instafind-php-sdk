@@ -17,8 +17,32 @@ public API of this package.
 - Every change someone would notice adds a fragment to `changelog.d/`; never edit `CHANGELOG.md` by hand.
 - Never tag or release without the owner's go. Not published to Packagist.
 
+## SemVer: what the public API is
+
+From `v1.0.0` on, these rules decide what is breaking (major), and the README's
+"Stability" section says the same for users:
+
+- Response objects are built by the SDK only. Their constructors are
+  `@internal`, so adding a field or accessor is a minor change. Result
+  classes are `final`; one wraps another rather than extending it
+  (`CampaignResult::result()` gives the `SearchResult`).
+- Parameter names are public API because of named arguments: renaming one is
+  breaking. Add new parameters only at the end, with a default.
+- Closed sets of input values are backed enums (`SearchContext`,
+  `SortOrder`, `RefreshMode`, `FieldType` …). Values the API sends back stay
+  strings, so a new server value is not a break.
+- Interfaces a host implements are frozen in 1.x: `Transport`, `Credential`,
+  `TokenStore`, `ConnectionObserver`, `BulkListener`, `Sleeper`, `Clock`.
+  Adding a method needs a new interface.
+- Dates are `DateTimeImmutable`, never strings.
+- Typed inputs where 1.0 takes arrays (`updateField()`, `putSearchBehaviors()`)
+  may be added later as new methods or accepted types, never by changing what
+  the array form accepts.
+
 ## Layout
 
+- `src/PublicApi.php`, `src/IntegrationApi.php`, `src/ClientOptions.php`: the entry points.
+- `src/Search/`: queries, results and enums of the public API.
 - `src/Transport/`: the `Transport` interface and its adapters (cURL default, PSR-18, WordPress).
 - `src/Auth/`: `Credential`, `StaticKey`, and `OAuth/` (PKCE flow, `OAuthConnection`, the host's `TokenStore`).
 - `src/Http/`: `Request`, `Response`, `RetryPolicy`, `UserAgent`; `ApiClient` is `@internal` plumbing.
