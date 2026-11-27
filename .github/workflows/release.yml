@@ -1,0 +1,30 @@
+name: Release
+
+# A tag is a release (cut with scripts/release.sh, with the owner's go). This
+# refuses a tag whose Sdk::VERSION or changelog section does not match it, and
+# publishes the GitHub Release with that section as its notes.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: The tag matches Sdk::VERSION and CHANGELOG.md
+        run: scripts/check-release-tag.sh "$GITHUB_REF_NAME"
+      - name: Publish the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          scripts/changelog-section.sh "$GITHUB_REF_NAME" > "$RUNNER_TEMP/notes.md"
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "The release exists already."
+          else
+            gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --title "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md"
+          fi

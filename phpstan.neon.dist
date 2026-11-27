@@ -1,0 +1,13 @@
+parameters:
+    level: max
+    phpVersion: 80100
+    paths:
+        - src
+        - tests
+    excludePaths:
+        # Stand-ins for WordPress, which the stubs below describe for src.
+        - tests/Fixtures/wordpress.php
+        - tests/Fixtures/wordpress-requests.php
+        - tests/Unit/Transport/WordPressTransportTest.php
+    scanFiles:
+        - vendor/php-stubs/wordpress-stubs/wordpress-stubs.php
