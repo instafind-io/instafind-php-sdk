@@ -154,17 +154,16 @@ final class IntegrationApi
     /**
      * Change a field: `type`, `token`, `split_delimiter`. A type change waits
      * for a rebuild of the index ({@see FieldDefinition::isRebuildPending()}).
-     * An unknown field answers a plain {@see ApiException} (404 `not_found`).
+     * An unknown field answers a plain {@see ApiException} (404 `http_404`).
      *
      * @param array{type?: string, token?: string|null, split_delimiter?: string|null} $changes
      *
+     * @throws IndexNotFoundException
      * @throws InstafindException
      */
     public function updateField(string $indexId, string $fieldId, array $changes): FieldDefinition
     {
-        $path = self::BASE_PATH . '/search-indices/' . rawurlencode($indexId) . '/field-definitions/' . rawurlencode($fieldId);
-
-        return new FieldDefinition(Data::map($this->api->send($this->api->request('PUT', $path, [], $changes)), 'data'));
+        return new FieldDefinition(Data::map($this->forIndex($indexId, 'PUT', '/field-definitions/' . rawurlencode($fieldId), $changes), 'data'));
     }
 
     /**
@@ -198,24 +197,27 @@ final class IntegrationApi
      *
      * @return int the nodes stored
      *
+     * @throws IndexNotFoundException
      * @throws InstafindException
      */
     public function putFilterValueTree(string $indexId, string $fieldId, array $nodes): int
     {
-        $path = self::BASE_PATH . '/search-indices/' . rawurlencode($indexId) . '/filter-value-trees/' . rawurlencode($fieldId);
-
-        return Data::int(Data::map($this->api->send($this->api->request('PUT', $path, [], ['nodes' => $nodes])), 'data'), 'nodes');
+        return Data::int(Data::map($this->forIndex($indexId, 'PUT', '/filter-value-trees/' . rawurlencode($fieldId), ['nodes' => $nodes]), 'data'), 'nodes');
     }
 
     /**
      * Where the shop's campaign pages are: an https address with `{name}` for
-     * the campaign. Null clears it. Needs `indexes:manage`.
+     * the campaign. It cannot be cleared, only replaced. Needs `indexes:manage`.
      *
+     * @throws \InvalidArgumentException on an empty address
      * @throws IndexNotFoundException
      * @throws InstafindException
      */
-    public function setCampaignPage(string $indexId, ?string $url): void
+    public function setCampaignPage(string $indexId, string $url): void
     {
+        if (trim($url) === '') {
+            throw new \InvalidArgumentException('Give the campaign page address; it cannot be cleared.');
+        }
         $this->forIndex($indexId, 'PUT', '/campaign-page', ['campaign_page_url' => $url]);
     }
 

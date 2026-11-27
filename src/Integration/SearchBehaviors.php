@@ -30,10 +30,13 @@ final class SearchBehaviors
     public function all(): array
     {
         $out = [];
-        foreach (Data::map($this->raw, 'data') as $field => $behavior) {
+        // Not Data::map(): an index without fields answers `{}` or `[]`, and
+        // field ids "0", "1", ... decode to a list.
+        $data = $this->raw['data'] ?? null;
+        foreach (is_array($data) ? $data : [] as $field => $behavior) {
             if (is_array($behavior)) {
                 /** @var array<string, mixed> $behavior */
-                $out[$field] = $behavior;
+                $out[(string) $field] = $behavior;
             }
         }
 

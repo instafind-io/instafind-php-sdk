@@ -126,6 +126,60 @@ final class IntegrationApiTest extends TestCase
         }
     }
 
+    public function testAMissingIndexOnFieldAndTreeRoutesMeansTheIndex(): void
+    {
+        $calls = [
+            fn() => $this->api->updateField(self::INDEX, 'colour', ['type' => 'attribute']),
+            fn() => $this->api->putFilterValueTree(self::INDEX, 'category', []),
+        ];
+        foreach ($calls as $call) {
+            $this->transport->queueJson(404, ['error' => 'not_found', 'message' => 'Not found.']);
+            try {
+                $call();
+                self::fail('No exception');
+            } catch (IndexNotFoundException $e) {
+                self::assertSame('index_not_found', $e->errorCode());
+            }
+        }
+    }
+
+    public function testAnUnknownFieldStaysAnApiException(): void
+    {
+        $this->transport->queueJson(404, ['message' => "Field 'colour' not found."]);
+
+        try {
+            $this->api->updateField(self::INDEX, 'colour', ['type' => 'attribute']);
+            self::fail('No exception');
+        } catch (ApiException $e) {
+            self::assertNotInstanceOf(IndexNotFoundException::class, $e);
+            self::assertSame('http_404', $e->errorCode());
+        }
+    }
+
+    public function testBehaviorsOfAnIndexWithoutFieldsOrWithNumericFieldIds(): void
+    {
+        $this->transport->queue(new Response(200, ['content-type' => 'application/json'], '{"data":{},"meta":{"searchable_fields":[]}}'));
+        $this->transport->queue(new Response(200, ['content-type' => 'application/json'], '{"data":[],"meta":{"searchable_fields":[]}}'));
+        $this->transport->queue(new Response(200, ['content-type' => 'application/json'], '{"message":"ok","data":{"data":{},"meta":{}}}'));
+        $this->transport->queue(new Response(200, ['content-type' => 'application/json'], '{"data":{"0":{"searchable":true},"1":{"facet":true}},"meta":{}}'));
+
+        $empty = [
+            $this->api->searchBehaviors(self::INDEX)->all(),
+            $this->api->searchBehaviors(self::INDEX)->all(),
+            $this->api->putSearchBehaviors(self::INDEX, [])->all(),
+        ];
+        self::assertSame([[], [], []], $empty);
+        $numeric = $this->api->searchBehaviors(self::INDEX);
+        self::assertCount(2, $numeric->all());
+        self::assertSame(['facet' => true], $numeric->forField('1'));
+    }
+
+    public function testACampaignPageCannotBeCleared(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->api->setCampaignPage(self::INDEX, ' ');
+    }
+
     public function testFieldsAndBehaviors(): void
     {
         $this->transport->queueJson(201, ['message' => 'Custom field created successfully', 'data' => ['field_id' => 'colour', 'type' => 'color']]);
