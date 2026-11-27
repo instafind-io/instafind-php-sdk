@@ -13,7 +13,7 @@ final class Sdk
      * The SDK's version, sent in every User-Agent. `scripts/release.sh` sets it
      * in the release commit; CI refuses a tag that differs from it.
      */
-    public const VERSION = '1.0.0-dev';
+    public const VERSION = '1.0.0';
 
     /** The product token of the User-Agent. */
     public const NAME = 'instafind-php-sdk';
