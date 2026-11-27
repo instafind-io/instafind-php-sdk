@@ -114,6 +114,10 @@ git tag -d v9.9.9 > /dev/null
 # The guards: where the release could go, and what the clone's git acts on.
 expect "an exported GIT_DIR is refused" 1 'GIT_DIR is set' -- env GIT_DIR="$base/work/.git" scripts/release.sh patch
 expect "an exported GIT_WORK_TREE is refused" 1 'GIT_WORK_TREE is set' -- env GIT_WORK_TREE="$base/work" scripts/release.sh patch
+printf '[user]\n\tname = Unchanged\n' > "$base/exported.gitconfig"
+cp "$base/exported.gitconfig" "$base/exported.gitconfig.before"
+expect "an exported GIT_CONFIG is refused" 1 'GIT_CONFIG is set' -- env GIT_CONFIG="$base/exported.gitconfig" scripts/release.sh patch
+cmp -s "$base/exported.gitconfig" "$base/exported.gitconfig.before" || fail "the release wrote to the file GIT_CONFIG named"
 expect "an origin that is not the GitHub repository is refused" 1 "origin's fetch URL is $base/origin\.git, not instafind-io/instafind-php-sdk on GitHub" -- env RELEASE_ALLOW_ANY_ORIGIN= scripts/release.sh patch
 git remote set-url origin https://github.com/instafind-io/instafind-php-sdk.git
 git config "url.$base/origin.git.insteadOf" https://github.com/instafind-io/instafind-php-sdk.git

@@ -34,8 +34,10 @@ if [[ -z "$bump" ]]; then
 fi
 
 # git commands in the clone must act on the clone: an exported GIT_DIR,
-# GIT_OBJECT_DIRECTORY and the like would point them at the caller's repository.
-for var in GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_NAMESPACE; do
+# GIT_OBJECT_DIRECTORY and the like would point them at the caller's repository,
+# and GIT_CONFIG would make `git config` in the clone write to that file (a
+# global config, say) instead of the clone's .git/config.
+for var in GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_NAMESPACE GIT_CONFIG; do
     if [[ -n "${!var:-}" ]]; then
         echo "$var is set in the environment; unset it and run this again." >&2
         exit 1
@@ -107,7 +109,7 @@ git clone --quiet --no-tags --origin origin --branch main --single-branch "$orig
 # URL (checked above), which is the fetch URL when there is no pushurl.
 for push_url in "${push_urls[@]}"; do
     if [[ "$push_url" != "$origin_url" || ${#push_urls[@]} -gt 1 ]]; then
-        git -C "$tree" config --add remote.origin.pushurl "$push_url"
+        git -C "$tree" config --file "$tree/.git/config" --add remote.origin.pushurl "$push_url"
     fi
 done
 # And the URLs the clone itself will push to (pushInsteadOf included).
