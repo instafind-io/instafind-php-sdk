@@ -23,7 +23,8 @@ use PHPUnit\Framework\TestCase;
  * with its own least-privilege site key. Run by .github/workflows/integration.yml;
  * skipped without INSTAFIND_CI_API_KEY.
  *
- * What it leaves on the website is the same after every run:
+ * Apart from search analytics, which each run adds to, what it leaves on
+ * the website is the same after every run:
  * - One index, INSTAFIND_CI_INDEX_ID (a repository variable). The API has
  *   no way to list a website's indexes, so the id cannot be looked up by
  *   name. Without the variable, the run creates the index, finishes, and
