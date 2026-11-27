@@ -136,10 +136,16 @@ final class OAuthClientTest extends TestCase
 
     public function testATokenResponseWithoutTokensIsUnexpected(): void
     {
-        $transport = (new MockTransport())->queueJson(200, ['access_token' => 'a']);
+        $transport = (new MockTransport())->queueJson(200, ['access_token' => 'ifa_secret']);
 
-        $this->expectException(ApiException::class);
-        (new OAuthClient(self::server(), 'c', $transport))->refresh('r0');
+        try {
+            (new OAuthClient(self::server(), 'c', $transport))->refresh('r0');
+            self::fail('No exception');
+        } catch (ApiException $e) {
+            self::assertSame(ApiException::UNEXPECTED_RESPONSE, $e->errorCode());
+            // The body may hold a token: it stays out of the exception.
+            self::assertSame('', $e->body());
+        }
     }
 
     public function testRevoke(): void

@@ -169,7 +169,8 @@ final class OAuthClient
         $access = is_array($tokens) ? ($tokens['access_token'] ?? null) : null;
         $refresh = is_array($tokens) ? ($tokens['refresh_token'] ?? null) : null;
         if (!is_array($tokens) || !is_string($access) || !is_string($refresh)) {
-            throw ApiException::unexpected('Instafind sent a token response without tokens.', $response);
+            // Without the body: it may hold a token, and bodies end up in logs.
+            throw new ApiException('Instafind sent a token response without tokens.', $response->status(), ApiException::UNEXPECTED_RESPONSE);
         }
         $expiresIn = $tokens['expires_in'] ?? null;
         $scope = $tokens['scope'] ?? null;

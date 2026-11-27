@@ -116,6 +116,11 @@ final class OAuthConnection implements Credential
                 // Forget it anyway: see above.
             }
         }
+        // Another process may have connected again while Instafind answered.
+        $now = $this->read();
+        if ($now !== null && $now->refreshToken() !== $state?->refreshToken()) {
+            return $revoked;
+        }
         $this->store->delete();
         $this->current = '';
 

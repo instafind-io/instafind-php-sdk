@@ -10,6 +10,7 @@ use Instafind\Sdk\Auth\OAuth\InMemoryTokenStore;
 use Instafind\Sdk\Auth\OAuth\OAuthConnection;
 use Instafind\Sdk\Auth\OAuth\Tokens;
 use Instafind\Sdk\Exception\InstafindException;
+use Instafind\Sdk\Http\Response;
 use Instafind\Sdk\Testing\MockTransport;
 use Instafind\Sdk\Tests\Fixtures\FakeClock;
 use Instafind\Sdk\Tests\Fixtures\RecordingSleeper;
@@ -202,6 +203,21 @@ final class OAuthConnectionTest extends TestCase
 
         self::assertFalse($connection->disconnect());
         self::assertNull($this->store->load());
+    }
+
+    public function testDisconnectKeepsAConnectionMadeMeanwhile(): void
+    {
+        $this->connect();
+        $store = $this->store;
+        $this->transport = new MockTransport(static function () use ($store): Response {
+            // Another process connects again while Instafind revokes the old connection.
+            $store->save(ConnectionState::fromTokens(OAuthClientTest::server(), 'client-1', new Tokens('ifa_new', 'ifr_new', time() + 3600)));
+
+            return new Response(200, [], '{}');
+        });
+
+        self::assertTrue($this->connection()->disconnect());
+        self::assertSame('ifr_new', $this->store->load()?->refreshToken());
     }
 
     public function testStateRoundTrips(): void
