@@ -31,6 +31,9 @@ foreach ($_SERVER as $key => $value) {
 if (isset($_SERVER['CONTENT_TYPE'])) {
     $headers['content-type'] = $_SERVER['CONTENT_TYPE'];
 }
+if (isset($_SERVER['CONTENT_LENGTH'])) {
+    $headers['content-length'] = $_SERVER['CONTENT_LENGTH'];
+}
 
 header('Content-Type: application/json');
 header('X-Echo: yes');

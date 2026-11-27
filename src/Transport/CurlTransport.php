@@ -141,6 +141,9 @@ final class CurlTransport implements Transport
         }
         if ($request->body() !== null) {
             $options[CURLOPT_POSTFIELDS] = $request->body();
+        } elseif (in_array($request->method(), ['POST', 'PUT', 'PATCH'], true)) {
+            // Without a body cURL sends no Content-Length, which some proxies answer with 411.
+            $options[CURLOPT_POSTFIELDS] = '';
         }
 
         /** @var \ArrayObject<string, string> $headersOut */

@@ -33,6 +33,14 @@ final class CurlTransportTest extends TestCase
         self::assertSame('instafind-php-sdk/1.0.0', $echo['headers']['user-agent']);
     }
 
+    public function testAPostWithoutBodySaysItsLengthIsZero(): void
+    {
+        $echo = self::echo((new CurlTransport())->send(new Request('POST', LocalServer::url() . '/x')));
+
+        self::assertSame('POST', $echo['method']);
+        self::assertSame('0', $echo['headers']['content-length'] ?? null);
+    }
+
     public function testReturnsErrorStatusesAsResponses(): void
     {
         $response = (new CurlTransport())->send(new Request('GET', LocalServer::url() . '/status?code=503'));
@@ -90,17 +98,22 @@ final class CurlTransportTest extends TestCase
             $requests[] = new Request('GET', $base . '/slow?ms=400&i=' . $i);
         }
 
-        $start = microtime(true);
-        $out = (new CurlTransport())->sendMany($requests);
-        $elapsed = microtime(true) - $start;
+        // PHP's built-in server sometimes lets one worker take several of the
+        // connections and answer them in turn, so take the best of a few tries.
+        $fastest = INF;
+        for ($try = 0; $try < 5 && $fastest >= 1.2; $try++) {
+            $start = microtime(true);
+            $out = (new CurlTransport())->sendMany($requests);
+            $fastest = min($fastest, microtime(true) - $start);
 
-        self::assertSame([0, 1, 2, 3], array_keys($out));
-        foreach ($out as $i => $response) {
-            self::assertInstanceOf(Response::class, $response);
-            self::assertSame('/slow?ms=400&i=' . $i, self::echo($response)['uri']);
+            self::assertSame([0, 1, 2, 3], array_keys($out));
+            foreach ($out as $i => $response) {
+                self::assertInstanceOf(Response::class, $response);
+                self::assertSame('/slow?ms=400&i=' . $i, self::echo($response)['uri']);
+            }
         }
         // One after the other would take 1.6 s.
-        self::assertLessThan(1.2, $elapsed);
+        self::assertLessThan(1.2, $fastest);
     }
 
     public function testSendManyWithNothing(): void

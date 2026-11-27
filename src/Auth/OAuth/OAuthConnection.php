@@ -54,10 +54,6 @@ final class OAuthConnection implements Credential
     /** The access token the last request was sent with. */
     private string $current = '';
 
-    private ?ConnectionState $state = null;
-
-    private bool $loaded = false;
-
     private readonly Clock $clock;
 
     private readonly Sleeper $sleeper;
@@ -85,12 +81,12 @@ final class OAuthConnection implements Credential
     /** The stored connection, null when there is none. */
     public function state(): ?ConnectionState
     {
-        return $this->read(false);
+        return $this->read();
     }
 
     public function isConnected(): bool
     {
-        $state = $this->read(false);
+        $state = $this->read();
 
         return $state !== null && !$state->isLost();
     }
@@ -98,7 +94,7 @@ final class OAuthConnection implements Credential
     /** Why Instafind ended the connection (an RFC 6749 error code), '' while it works. */
     public function lostReason(): string
     {
-        return $this->read(false)?->lostReason() ?? '';
+        return $this->read()?->lostReason() ?? '';
     }
 
     /**
@@ -110,7 +106,7 @@ final class OAuthConnection implements Credential
      */
     public function disconnect(): bool
     {
-        $state = $this->read(true);
+        $state = $this->read();
         $revoked = false;
         if ($state !== null && !$state->isLost()) {
             try {
@@ -121,8 +117,6 @@ final class OAuthConnection implements Credential
             }
         }
         $this->store->delete();
-        $this->state = null;
-        $this->loaded = true;
         $this->current = '';
 
         return $revoked;
@@ -130,7 +124,7 @@ final class OAuthConnection implements Credential
 
     public function bearer(): string
     {
-        $state = $this->read(false);
+        $state = $this->read();
         if ($state === null) {
             return '';
         }
@@ -161,7 +155,7 @@ final class OAuthConnection implements Credential
             if ($this->takeNewer($before)) {
                 return true;
             }
-            $state = $this->read(true);
+            $state = $this->read();
             if ($state === null || $state->isLost()) {
                 return false;
             }
@@ -170,7 +164,7 @@ final class OAuthConnection implements Credential
 
             // Store the new tokens only if the connection is still the one
             // refreshed: a disconnect or a new connection may have replaced it.
-            $now = $this->read(true);
+            $now = $this->read();
             if ($now === null || $now->refreshToken() !== $spent) {
                 return $this->takeNewer($before);
             }
@@ -181,7 +175,7 @@ final class OAuthConnection implements Credential
         } catch (InstafindException $e) {
             $fatal = $e instanceof ApiException && in_array($e->errorCode(), self::FATAL_ERRORS, true);
             if ($fatal) {
-                $now = $this->read(true);
+                $now = $this->read();
                 // Only the connection whose token was refused is over.
                 if ($now !== null && $now->refreshToken() === $spent) {
                     $this->write($now->withLost($e->errorCode()));
@@ -224,7 +218,7 @@ final class OAuthConnection implements Credential
     /** Whether the stored access token is a usable one other than $before. */
     private function takeNewer(string $before): bool
     {
-        $state = $this->read(true);
+        $state = $this->read();
         if ($state === null || $state->isLost() || $state->accessToken() === $before || $state->expiresAt() - self::EARLY <= $this->clock->now()) {
             return false;
         }
@@ -233,20 +227,17 @@ final class OAuthConnection implements Credential
         return true;
     }
 
-    private function read(bool $fresh): ?ConnectionState
+    /**
+     * Always from the store: another process may have connected, renewed,
+     * reconnected or disconnected since this object last looked.
+     */
+    private function read(): ?ConnectionState
     {
-        if ($fresh || !$this->loaded) {
-            $this->state = $this->store->load();
-            $this->loaded = true;
-        }
-
-        return $this->state;
+        return $this->store->load();
     }
 
     private function write(ConnectionState $state): void
     {
         $this->store->save($state);
-        $this->state = $state;
-        $this->loaded = true;
     }
 }

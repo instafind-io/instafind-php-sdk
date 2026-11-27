@@ -95,4 +95,48 @@ final class WordPressTransportTest extends TestCase
         self::assertFalse($options['follow_redirects']);
         self::assertSame([], $GLOBALS['wp_requests']);
     }
+
+    public function testParallelRequestsSendTheirBodyAsTheBody(): void
+    {
+        require_once __DIR__ . '/../../Fixtures/wordpress-requests.php';
+
+        (new WordPressTransport())->sendMany([
+            'a' => new Request('DELETE', 'https://p/a', [], '{"ids":[1]}'),
+            'b' => new Request('GET', 'https://p/b'),
+        ]);
+
+        self::assertNotNull(\WpOrg\Requests\Requests::$last);
+        [$requests] = \WpOrg\Requests\Requests::$last;
+        self::assertSame('body', $requests['a']['options']['data_format']);
+        self::assertArrayNotHasKey('data_format', $requests['b']['options']);
+    }
+
+    public function testWithAProxySendManyGoesThroughWordPress(): void
+    {
+        require_once __DIR__ . '/../../Fixtures/wordpress-requests.php';
+        define('WP_PROXY_HOST', 'proxy.example');
+        eval('final class WP_HTTP_Proxy { public function is_enabled(): bool { return defined("WP_PROXY_HOST"); } }');
+        $GLOBALS['wp_responses'][] = ['headers' => [], 'response' => ['code' => 200], 'body' => 'one'];
+        $GLOBALS['wp_responses'][] = ['headers' => [], 'response' => ['code' => 200], 'body' => 'two'];
+
+        $out = (new WordPressTransport())->sendMany(['a' => new Request('GET', 'https://p/a'), 'b' => new Request('GET', 'https://p/b')]);
+
+        self::assertInstanceOf(Response::class, $out['b']);
+        self::assertSame('two', $out['b']->body());
+        self::assertCount(2, $GLOBALS['wp_requests']);
+        self::assertNull(\WpOrg\Requests\Requests::$last);
+    }
+
+    public function testWithExternalRequestsBlockedSendManyGoesThroughWordPress(): void
+    {
+        require_once __DIR__ . '/../../Fixtures/wordpress-requests.php';
+        define('WP_HTTP_BLOCK_EXTERNAL', true);
+        $GLOBALS['wp_responses'][] = ['headers' => [], 'response' => ['code' => 200], 'body' => 'one'];
+        $GLOBALS['wp_responses'][] = ['headers' => [], 'response' => ['code' => 200], 'body' => 'two'];
+
+        (new WordPressTransport())->sendMany(['a' => new Request('GET', 'https://p/a'), 'b' => new Request('GET', 'https://p/b')]);
+
+        self::assertCount(2, $GLOBALS['wp_requests']);
+        self::assertNull(\WpOrg\Requests\Requests::$last);
+    }
 }

@@ -10,9 +10,14 @@ use Instafind\Sdk\Http\Response;
 
 /**
  * {@see Transport} over the WordPress HTTP API: `wp_remote_request()` for one
- * request, the bundled Requests library for parallel ones. Proxies, CA
- * bundle and the `http_request_args` filters apply as for any WordPress
- * request.
+ * request, the bundled Requests library for parallel ones.
+ *
+ * Single requests get everything a WordPress request gets: proxy, CA bundle,
+ * `WP_HTTP_BLOCK_EXTERNAL` and the `pre_http_request` / `http_request_args`
+ * filters. Parallel requests get WordPress's CA bundle but skip those
+ * filters; on a site with a proxy or blocked external requests,
+ * {@see self::sendMany()} therefore sends one request after the other through
+ * `wp_remote_request()` instead.
  */
 final class WordPressTransport implements Transport
 {
@@ -54,7 +59,7 @@ final class WordPressTransport implements Transport
 
     public function sendMany(array $requests): array
     {
-        if (!class_exists(\WpOrg\Requests\Requests::class) || count($requests) < 2) {
+        if (!class_exists(\WpOrg\Requests\Requests::class) || count($requests) < 2 || self::wordPressRoutesRequests()) {
             $out = [];
             foreach ($requests as $key => $request) {
                 try {
@@ -86,6 +91,10 @@ final class WordPressTransport implements Transport
                 'type' => $request->method(),
                 'options' => $options,
             ];
+            if ($request->body() !== null) {
+                // Requests would put a DELETE's data in the query string, and fail on a string.
+                $multi[$key]['options']['data_format'] = 'body';
+            }
             $timeout = max($timeout, $request->timeout());
         }
 
@@ -119,6 +128,19 @@ final class WordPressTransport implements Transport
         }
 
         return $out;
+    }
+
+    /**
+     * Whether WordPress sends requests through a proxy or blocks external
+     * ones, which parallel requests through Requests would bypass.
+     */
+    private static function wordPressRoutesRequests(): bool
+    {
+        if (defined('WP_HTTP_BLOCK_EXTERNAL') && constant('WP_HTTP_BLOCK_EXTERNAL')) {
+            return true;
+        }
+
+        return class_exists(\WP_HTTP_Proxy::class) && (new \WP_HTTP_Proxy())->is_enabled();
     }
 
     /** A header value WordPress may give as a list: its last entry. */

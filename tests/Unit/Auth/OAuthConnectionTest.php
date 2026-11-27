@@ -82,6 +82,20 @@ final class OAuthConnectionTest extends TestCase
         self::assertFalse($connection->renew());
     }
 
+    public function testAConnectionMadeByAnotherProcessIsSeen(): void
+    {
+        $worker = $this->connection();
+        self::assertSame('', $worker->bearer());
+
+        // The shop connects in another request while this worker keeps running.
+        $this->connect();
+        self::assertSame('ifa_1', $worker->bearer());
+
+        // And reconnects to another website: the worker follows at once.
+        $this->connection()->connect(OAuthClientTest::server(), 'client-1', new Tokens('ifa_other', 'ifr_other', $this->clock->now + 3600));
+        self::assertSame('ifa_other', $worker->bearer());
+    }
+
     public function testAFreshTokenIsUsedAsItIs(): void
     {
         $connection = $this->connect();

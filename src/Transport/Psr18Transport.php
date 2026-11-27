@@ -21,6 +21,12 @@ use Psr\Http\Message\StreamFactoryInterface;
  * PSR-18 has no timeouts and no parallel requests: configure the timeout on
  * the client, and {@see self::sendMany()} sends one request after the other.
  * Make sure the client does not follow redirects.
+ *
+ * Give the client a timeout of at most 15 seconds (Guzzle's default is none).
+ * {@see \Instafind\Sdk\Auth\OAuth\OAuthConnection} relies on a token
+ * refresh ending well inside Instafind's 60-second retry window: a refresh
+ * that hangs longer lets another process spend the same refresh token, and
+ * Instafind then revokes the connection.
  */
 final class Psr18Transport implements Transport
 {
