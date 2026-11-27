@@ -73,7 +73,9 @@ class ApiException extends InstafindException
 
         $retryAfter = self::parseRetryAfter($response->header('retry-after'));
 
-        if ($status === 404 && in_array($code, ['not_found', 'index_not_found'], true)) {
+        // Only this code names the index; another 404 (a wrong base URL, an
+        // unknown product) is not about the index.
+        if ($status === 404 && $code === 'index_not_found') {
             return new IndexNotFoundException($message, $status, $code, $retryAfter, $response->body());
         }
 

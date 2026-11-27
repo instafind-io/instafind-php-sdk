@@ -164,7 +164,7 @@ final class OAuthConnection implements Credential
             return '';
         }
         $this->current = $state->accessToken();
-        if (!$state->isLost() && $state->expiresAt() - self::EARLY <= $this->clock->now()) {
+        if (!$state->isLost() && $state->expiresAtTimestamp() - self::EARLY <= $this->clock->now()) {
             $this->renew();
         }
 
@@ -310,7 +310,7 @@ final class OAuthConnection implements Credential
     private function takeNewer(#[\SensitiveParameter] string $before): bool
     {
         $state = $this->read();
-        if ($state === null || $state->isLost() || $state->accessToken() === $before || $state->expiresAt() - self::EARLY <= $this->clock->now()) {
+        if ($state === null || $state->isLost() || $state->accessToken() === $before || $state->expiresAtTimestamp() - self::EARLY <= $this->clock->now()) {
             return false;
         }
         $this->current = $state->accessToken();

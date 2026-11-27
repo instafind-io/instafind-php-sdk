@@ -62,6 +62,7 @@ final class ApiExceptionTest extends TestCase
     {
         self::assertInstanceOf(IndexNotFoundException::class, ApiException::fromResponse(new Response(404, [], '{"error":"index_not_found"}')));
         self::assertNotInstanceOf(IndexNotFoundException::class, ApiException::fromResponse(new Response(404, [], '{"error":"product_not_found"}')));
+        self::assertNotInstanceOf(IndexNotFoundException::class, ApiException::fromResponse(new Response(404, [], '{"error":"not_found"}')));
     }
 
     public function testEvery503And429IsRetryable(): void
