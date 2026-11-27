@@ -3,7 +3,8 @@
 # Cuts a release: works out the next version from the newest tag on origin,
 # merges the fragments in changelog.d into a new section of the changelog,
 # sets Sdk::VERSION, and commits and tags it on top of origin/main. Works in a
-# temporary worktree, so it runs from any checkout and leaves yours alone.
+# temporary clone of origin, so it runs from any checkout and leaves yours alone
+# (no fetch into it, no worktree, no local tag).
 #
 # Usage: scripts/release.sh <patch|minor|major> [--push]
 #
@@ -32,7 +33,7 @@ if [[ -z "$bump" ]]; then
     exit 2
 fi
 
-git fetch --quiet --tags origin main
+origin_url=$(git remote get-url origin)
 
 # Origin's tags, not local ones: a stray local tag is not a release.
 latest=$(git ls-remote --tags --refs origin 'v*' \
@@ -56,17 +57,17 @@ else
 fi
 tag="v$next"
 
+# A clone of origin's main, thrown away on exit: a tag made in it and not
+# pushed goes with it.
 tree=$(mktemp -d)
-unpushed_tag=""
 cleanup() {
-    git worktree remove --force "$tree" 2>/dev/null || true
     rm -rf "$tree"
-    if [[ -n "$unpushed_tag" ]]; then
-        git tag -d "$unpushed_tag" >/dev/null
-    fi
 }
 trap cleanup EXIT
-git worktree add --quiet --detach "$tree" origin/main
+git clone --quiet --no-tags --branch main --single-branch "$origin_url" "$tree"
+if [[ -n "$latest" ]]; then
+    git -C "$tree" fetch --quiet --no-tags origin "refs/tags/$latest:refs/tags/$latest"
+fi
 
 changelog="$tree/CHANGELOG.md"
 version_file="$tree/src/Sdk.php"
@@ -167,11 +168,9 @@ fi
 git -C "$tree" rm --quiet -- 'changelog.d/*.md' ':!changelog.d/README.md'
 git -C "$tree" commit --quiet -am "Release $tag"
 git -C "$tree" tag -a "$tag" -m "$tag"
-unpushed_tag="$tag"
 if ! git -C "$tree" push --quiet --atomic origin HEAD:refs/heads/main "refs/tags/$tag"; then
     echo "Push refused, nothing released. If main moved, run this again." >&2
     exit 1
 fi
-unpushed_tag=""
 
 echo "Pushed $tag. The GitHub Release follows: gh run list --workflow=release.yml"
