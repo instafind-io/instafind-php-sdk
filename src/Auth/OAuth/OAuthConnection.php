@@ -191,8 +191,6 @@ final class OAuthConnection implements Credential
         $this->lockedAt = $this->clock->now();
 
         $spent = '';
-        $oauth = null;
-        $orphaned = '';
         try {
             // Renewed by another process while this one waited for the lock.
             if ($this->takeNewer($before)) {
@@ -203,19 +201,19 @@ final class OAuthConnection implements Credential
                 return false;
             }
             $spent = $state->refreshToken();
-            $oauth = $this->oauth($state);
-            $tokens = $this->refresh($oauth, $spent);
+            $tokens = $this->refresh($this->oauth($state), $spent);
 
             // Store the new tokens only if the connection is still the one
             // refreshed: a new connection may have replaced it, and then this
             // one takes what is stored.
             $now = $this->read();
             if ($now === null) {
-                // Disconnected meanwhile, or the store failed to read: nobody
-                // holds the new tokens, so the connection cannot go on.
-                $orphaned = $tokens->refreshToken();
-
-                throw new InstafindException('The stored Instafind connection was gone after the renewal; its new tokens were not saved. Connect again.');
+                // Disconnected meanwhile, or the store failed to read: the host
+                // has to know, because the new tokens are lost. Not revoked and
+                // not reported as lost: after a failed read the stored
+                // connection comes back, and its next renewal inside
+                // Instafind's 60-second retry window still gets them.
+                throw new InstafindException('The stored Instafind connection was gone after the renewal; its new tokens were not saved.');
             }
             if ($now->refreshToken() !== $spent) {
                 return $this->takeNewer($before);
@@ -238,18 +236,6 @@ final class OAuthConnection implements Credential
             $failure = $e;
         } finally {
             $this->unlock();
-        }
-
-        if ($orphaned !== '' && $oauth !== null) {
-            // End the connection the lost tokens belong to, best effort, so it
-            // does not stay open in Instafind with nobody holding it. After the
-            // lock is released: the refresh may have used up its time.
-            try {
-                $oauth->revoke($orphaned);
-            } catch (InstafindException) {
-                // It cannot be renewed from here either way.
-            }
-            $fatal = true;
         }
 
         // After the lock is released: an observer may connect or disconnect.
