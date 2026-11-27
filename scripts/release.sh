@@ -148,7 +148,8 @@ if [[ "$push" != "1" ]]; then
     exit 0
 fi
 
-# The live integration job must have passed on the commit being released.
+# The live integration job must have passed on origin/main's tip, which the
+# release commit goes on top of.
 sha=$(git -C "$tree" rev-parse HEAD)
 green=$(gh run list --repo instafind-io/instafind-php-sdk --workflow=integration.yml --commit "$sha" --status success --limit 1 --json databaseId --jq length 2>/dev/null || echo 0)
 if [[ "$green" != "1" ]]; then

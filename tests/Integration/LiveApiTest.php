@@ -23,14 +23,17 @@ use PHPUnit\Framework\TestCase;
  * with its own least-privilege site key. Run by .github/workflows/integration.yml;
  * skipped without INSTAFIND_CI_API_KEY.
  *
- * It leaves the website as it found it, apart from one index it reuses:
- * - The index is INSTAFIND_CI_INDEX_ID (a repository variable). The API has
+ * What it leaves on the website is the same after every run:
+ * - One index, INSTAFIND_CI_INDEX_ID (a repository variable). The API has
  *   no way to list a website's indexes, so the id cannot be looked up by
  *   name. Without the variable, the run creates the index, finishes, and
  *   then fails, asking for the variable to be set to the new index's id.
+ *   The index's campaign page, default filters and default template are
+ *   set to the same values every run.
  * - It writes the same three products every run and deletes them at the end.
  * - It sends one fixed order (same reference and dates every run, so a
- *   repeat is `stale`), and forgets its fixed customer key.
+ *   repeat replaces it: `ok`, or `stale` if a newer copy is stored). The
+ *   order stays; its fixed customer key is forgotten.
  */
 final class LiveApiTest extends TestCase
 {

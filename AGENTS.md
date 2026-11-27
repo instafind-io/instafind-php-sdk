@@ -83,12 +83,17 @@ Secrets `INSTAFIND_CI_API_KEY`, `INSTAFIND_CI_WEBSITE_ID`,
 `INSTAFIND_CI_BASE_URL`; repository variables `INSTAFIND_CI_INDEX_ID` (the
 reused index, as the API cannot list indexes) and optionally
 `INSTAFIND_CI_PUBLIC_BASE_URL` (default `https://s.instafind.io`). It writes
-three fixed products and deletes them, and sends one fixed order. Locally
-the suite skips without the key.
+three fixed products and deletes them, sends one fixed order (which stays),
+and sets the CI index's campaign page, default filters and template. Without
+`INSTAFIND_CI_INDEX_ID` it creates the index and fails with the id to set.
+The suite is not in the default `vendor/bin/phpunit` run; run it with
+`--testsuite integration`. Locally it skips without the key.
 
 ## Releases
 
 `scripts/release.sh <patch|minor|major>` shows what would be released;
-`--push` releases. The first release is `major` and gives `v1.0.0`.
+`--push` releases, and only once the live integration job has passed on
+`origin/main`'s tip (it prints the `gh workflow run` command otherwise). The
+first release is `major` and gives `v1.0.0`.
 `release.yml` refuses a tag whose `Sdk::VERSION` or changelog section does not
 match it. Only with the owner's go.
