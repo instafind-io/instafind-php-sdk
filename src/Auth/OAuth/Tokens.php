@@ -16,11 +16,14 @@ final class Tokens
      * @param array<string, mixed> $raw the token response as it arrived
      */
     public function __construct(
+        #[\SensitiveParameter]
         private readonly string $accessToken,
+        #[\SensitiveParameter]
         private readonly string $refreshToken,
         private readonly int $expiresAt,
         private readonly array $scopes = [],
         private readonly string $websiteId = '',
+        #[\SensitiveParameter]
         private readonly array $raw = [],
     ) {}
 

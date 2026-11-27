@@ -111,7 +111,7 @@ final class OAuthClient
      * @throws ApiException
      * @throws TransportException
      */
-    public function exchangeCode(string $code, AuthorizationRequest $request): Tokens
+    public function exchangeCode(#[\SensitiveParameter] string $code, AuthorizationRequest $request): Tokens
     {
         return $this->tokenRequest([
             'grant_type' => 'authorization_code',
@@ -130,7 +130,7 @@ final class OAuthClient
      * @throws ApiException
      * @throws TransportException
      */
-    public function refresh(string $refreshToken): Tokens
+    public function refresh(#[\SensitiveParameter] string $refreshToken): Tokens
     {
         return $this->tokenRequest([
             'grant_type' => 'refresh_token',
@@ -145,7 +145,7 @@ final class OAuthClient
      * @throws ApiException
      * @throws TransportException
      */
-    public function revoke(string $token): void
+    public function revoke(#[\SensitiveParameter] string $token): void
     {
         $response = $this->postForm($this->server->revocationEndpoint(), [
             'token' => $token,
@@ -159,7 +159,7 @@ final class OAuthClient
     /**
      * @param array<string, string> $fields
      */
-    private function tokenRequest(array $fields): Tokens
+    private function tokenRequest(#[\SensitiveParameter] array $fields): Tokens
     {
         $response = $this->postForm($this->server->tokenEndpoint(), $fields);
         if ($response->status() !== 200) {
@@ -191,7 +191,7 @@ final class OAuthClient
     /**
      * @param array<string, string> $fields
      */
-    private function postForm(string $url, array $fields): Response
+    private function postForm(string $url, #[\SensitiveParameter] array $fields): Response
     {
         $headers = self::headers($this->userAgent) + ['Content-Type' => 'application/x-www-form-urlencoded'];
 

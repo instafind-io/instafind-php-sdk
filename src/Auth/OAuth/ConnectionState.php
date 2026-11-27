@@ -18,7 +18,9 @@ final class ConnectionState
     public function __construct(
         private readonly AuthorizationServer $server,
         private readonly string $clientId,
+        #[\SensitiveParameter]
         private readonly string $accessToken,
+        #[\SensitiveParameter]
         private readonly string $refreshToken,
         private readonly int $expiresAt,
         private readonly array $scopes = [],
@@ -37,7 +39,7 @@ final class ConnectionState
      *
      * @throws \InvalidArgumentException when the data is not a stored connection
      */
-    public static function fromArray(array $data): self
+    public static function fromArray(#[\SensitiveParameter] array $data): self
     {
         $clientId = $data['client_id'] ?? null;
         $accessToken = $data['access_token'] ?? null;

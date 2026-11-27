@@ -9,7 +9,7 @@ namespace Instafind\Sdk\Auth;
  */
 final class StaticKey implements Credential
 {
-    public function __construct(private readonly string $key) {}
+    public function __construct(#[\SensitiveParameter] private readonly string $key) {}
 
     public function bearer(): string
     {

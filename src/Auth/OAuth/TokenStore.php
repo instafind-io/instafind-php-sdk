@@ -18,6 +18,9 @@ interface TokenStore
     /**
      * The stored connection, read from storage, not from a cache: another
      * process may have renewed it since. Null when there is none.
+     *
+     * @throws \InvalidArgumentException from {@see ConnectionState::fromArray()}
+     *         when the stored data is damaged: the connection counts as none
      */
     public function load(): ?ConnectionState;
 

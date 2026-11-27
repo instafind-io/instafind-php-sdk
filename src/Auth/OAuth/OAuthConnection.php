@@ -211,7 +211,7 @@ final class OAuthConnection implements Credential
      * Refresh, repeating at once when Instafind did not answer or answered
      * with a server error.
      */
-    private function refresh(OAuthClient $oauth, string $refreshToken): Tokens
+    private function refresh(OAuthClient $oauth, #[\SensitiveParameter] string $refreshToken): Tokens
     {
         for ($attempt = 1; ; $attempt++) {
             try {
@@ -277,7 +277,13 @@ final class OAuthConnection implements Credential
      */
     private function read(): ?ConnectionState
     {
-        return $this->store->load();
+        try {
+            return $this->store->load();
+        } catch (\InvalidArgumentException) {
+            // Damaged stored data ({@see ConnectionState::fromArray()}): no
+            // connection, so calls go on and connecting again overwrites it.
+            return null;
+        }
     }
 
     private function write(ConnectionState $state): void

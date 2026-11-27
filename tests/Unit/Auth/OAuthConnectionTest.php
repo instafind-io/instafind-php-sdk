@@ -7,10 +7,12 @@ namespace Instafind\Sdk\Tests\Unit\Auth;
 use Instafind\Sdk\Auth\OAuth\ConnectionObserver;
 use Instafind\Sdk\Auth\OAuth\ConnectionState;
 use Instafind\Sdk\Auth\OAuth\InMemoryTokenStore;
+use Instafind\Sdk\Auth\OAuth\OAuthClient;
 use Instafind\Sdk\Auth\OAuth\OAuthConnection;
 use Instafind\Sdk\Auth\OAuth\Tokens;
 use Instafind\Sdk\Auth\OAuth\TokenStore;
 use Instafind\Sdk\Exception\InstafindException;
+use Instafind\Sdk\Exception\TransportException;
 use Instafind\Sdk\Http\Response;
 use Instafind\Sdk\Support\Sleeper;
 use Instafind\Sdk\Testing\MockTransport;
@@ -413,6 +415,69 @@ final class OAuthConnectionTest extends TestCase
         self::assertTrue($lockedDuringRevoke);
         self::assertFalse($this->store->isLocked());
         self::assertNull($this->store->load());
+    }
+
+    public function testDamagedStoredDataCountsAsNoConnection(): void
+    {
+        $store = new class implements TokenStore {
+            public bool $deleted = false;
+
+            public function load(): ?ConnectionState
+            {
+                return $this->deleted ? null : ConnectionState::fromArray(['client_id' => 'client-1']);
+            }
+
+            public function save(ConnectionState $state): void {}
+
+            public function delete(): void
+            {
+                $this->deleted = true;
+            }
+
+            public function acquireLock(int $staleAfter): bool
+            {
+                return true;
+            }
+
+            public function releaseLock(): void {}
+
+            public function isLocked(): bool
+            {
+                return false;
+            }
+        };
+        $connection = new OAuthConnection($store, $this->transport, null, null, $this->clock, $this->sleeper);
+
+        self::assertSame('', $connection->bearer());
+        self::assertFalse($connection->isConnected());
+        self::assertFalse($connection->disconnect());
+        self::assertTrue($store->deleted);
+        self::assertSame([], $this->transport->requests());
+    }
+
+    public function testTokensAreLeftOutOfStackTraces(): void
+    {
+        if (PHP_VERSION_ID < 80200) {
+            self::markTestSkipped('SensitiveParameter needs PHP 8.2.');
+        }
+        // Made while the request is sent, so its trace holds the calls that led there.
+        $transport = new MockTransport(static fn(): TransportException => new TransportException('timed out'));
+        try {
+            (new OAuthClient(OAuthClientTest::server(), 'client-1', $transport))->refresh('ifr_secret');
+            self::fail('No exception');
+        } catch (TransportException $e) {
+            // Strings and arrays, as error trackers send them; objects stay out of it.
+            $args = [];
+            foreach ($e->getTrace() as $frame) {
+                foreach ($frame['args'] ?? [] as $arg) {
+                    if (!is_object($arg)) {
+                        $args[] = $arg;
+                    }
+                }
+            }
+            self::assertNotSame([], $args);
+            self::assertStringNotContainsString('ifr_secret', print_r($args, true));
+        }
     }
 
     public function testStateRoundTrips(): void

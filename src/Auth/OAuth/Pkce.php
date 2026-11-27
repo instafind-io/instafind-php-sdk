@@ -15,7 +15,7 @@ final class Pkce
         return self::base64url(random_bytes(32));
     }
 
-    public static function challenge(string $verifier): string
+    public static function challenge(#[\SensitiveParameter] string $verifier): string
     {
         return self::base64url(hash('sha256', $verifier, true));
     }
