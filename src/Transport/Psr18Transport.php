@@ -64,8 +64,9 @@ final class Psr18Transport implements Transport
 
         try {
             $body = (string) $response->getBody();
-        } catch (\RuntimeException $e) {
-            // A streamed body can fail while it is read.
+        } catch (\Exception $e) {
+            // A streamed body can fail while it is read (some streams warn,
+            // and the host may turn the warning into an ErrorException).
             throw new TransportException('The answer could not be read: ' . $e->getMessage(), $request->url());
         }
 

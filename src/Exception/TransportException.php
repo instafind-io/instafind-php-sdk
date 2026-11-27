@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Instafind\Sdk\Exception;
 
 /**
- * No answer arrived: DNS failure, connection refused, TLS error, timeout.
+ * No answer arrived: DNS failure, connection refused, TLS error, timeout,
+ * or an answer broke off while its body was read.
  *
  * The request may or may not have reached Instafind. The SDK repeats it only
  * when it is idempotent.

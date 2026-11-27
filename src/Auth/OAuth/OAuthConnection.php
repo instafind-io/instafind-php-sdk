@@ -72,17 +72,17 @@ final class OAuthConnection implements Credential
 
     /**
      * Store a new connection after the code exchange, replacing any earlier one.
+     *
+     * @throws InstafindException when the renewal lock stays taken; nothing was stored
      */
     public function connect(AuthorizationServer $server, string $clientId, Tokens $tokens): void
     {
         // Behind the renewal lock, so a running renewal cannot overwrite it.
-        $locked = $this->lock();
+        $this->lock();
         try {
             $this->write(ConnectionState::fromTokens($server, $clientId, $tokens));
         } finally {
-            if ($locked) {
-                $this->store->releaseLock();
-            }
+            $this->store->releaseLock();
         }
     }
 
@@ -111,11 +111,13 @@ final class OAuthConnection implements Credential
      * connection then stays open there until someone ends it in Instafind.
      *
      * @return bool whether Instafind confirmed the revocation
+     *
+     * @throws InstafindException when the renewal lock stays taken; nothing was changed
      */
     public function disconnect(): bool
     {
         // Behind the renewal lock, so no renewal or new connection is stored meanwhile.
-        $locked = $this->lock();
+        $this->lock();
         try {
             $state = $this->read();
             $revoked = false;
@@ -132,9 +134,7 @@ final class OAuthConnection implements Credential
 
             return $revoked;
         } finally {
-            if ($locked) {
-                $this->store->releaseLock();
-            }
+            $this->store->releaseLock();
         }
     }
 
@@ -163,7 +163,6 @@ final class OAuthConnection implements Credential
         }
 
         $spent = '';
-        $fatal = false;
         try {
             // Renewed by another process while this one waited for the lock.
             if ($this->takeNewer($before)) {
@@ -228,21 +227,22 @@ final class OAuthConnection implements Credential
     }
 
     /**
-     * Take the lock, waiting for a renewal that holds it. It keeps trying
-     * until the lock counts as stale, when the store hands it over, so only
-     * a store that breaks that promise leaves the caller without it.
+     * Take the lock, waiting for a renewal that holds it, at most until a
+     * lock left by a dead process would count as stale. Never goes ahead
+     * without it: another process may have taken over a stale lock and be
+     * renewing right now.
+     *
+     * @throws InstafindException when the lock stays taken
      */
-    private function lock(): bool
+    private function lock(): void
     {
         $deadline = $this->clock->now() + self::LOCK_STALE + 1;
         while (!$this->store->acquireLock(self::LOCK_STALE)) {
             if ($this->clock->now() >= $deadline) {
-                return false;
+                throw new InstafindException('The Instafind connection is busy being renewed. Try again in a minute.');
             }
             $this->sleeper->sleep(0.25);
         }
-
-        return true;
     }
 
     /** Wait until another process releases the lock, or LOCK_WAIT has passed. */

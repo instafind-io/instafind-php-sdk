@@ -11,7 +11,6 @@ use Instafind\Sdk\Auth\OAuth\OAuthConnection;
 use Instafind\Sdk\Auth\OAuth\Tokens;
 use Instafind\Sdk\Auth\OAuth\TokenStore;
 use Instafind\Sdk\Exception\InstafindException;
-use Instafind\Sdk\Exception\TransportException;
 use Instafind\Sdk\Http\Response;
 use Instafind\Sdk\Support\Sleeper;
 use Instafind\Sdk\Testing\MockTransport;
@@ -208,31 +207,35 @@ final class OAuthConnectionTest extends TestCase
         self::assertNull($this->store->load());
     }
 
-    public function testDisconnectForgetsTokensRenewedMeanwhile(): void
+    public function testDisconnectNeverGoesAheadWithoutTheLock(): void
     {
         $this->connect();
-        // A renewal in another process holds the lock past the wait.
+        // Another process holds the lock past the wait, e.g. after taking over a stale one.
         $this->store->acquireLock(60);
-        $store = $this->store;
-        $this->transport = new MockTransport(static function () use ($store): TransportException {
-            $store->save(ConnectionState::fromTokens(OAuthClientTest::server(), 'client-1', new Tokens('ifa_2', 'ifr_2', time() + 3600)));
 
-            return new TransportException('timed out');
-        });
-
-        self::assertFalse($this->connection()->disconnect());
-        self::assertNull($this->store->load());
+        try {
+            $this->connection()->disconnect();
+            self::fail('No exception');
+        } catch (InstafindException $e) {
+            self::assertStringContainsString('busy', $e->getMessage());
+        }
+        self::assertSame('ifr_1', $this->store->load()?->refreshToken());
+        self::assertSame([], $this->transport->requests());
+        self::assertTrue($this->store->isLocked());
     }
 
-    public function testConnectWaitsForARunningRenewal(): void
+    public function testConnectNeverGoesAheadWithoutTheLock(): void
     {
-        // A renewal in another process holds the lock past the wait.
         $this->store->acquireLock(60);
 
-        $this->connect();
-
-        self::assertSame('ifr_1', $this->store->load()?->refreshToken());
+        try {
+            $this->connect();
+            self::fail('No exception');
+        } catch (InstafindException) {
+        }
+        self::assertNull($this->store->load());
         self::assertNotSame([], $this->sleeper->sleeps);
+        self::assertTrue($this->store->isLocked());
     }
 
     public function testDisconnectWaitsForARenewalAndRevokesWhatItStored(): void
