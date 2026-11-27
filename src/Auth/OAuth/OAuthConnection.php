@@ -106,25 +106,38 @@ final class OAuthConnection implements Credential
      */
     public function disconnect(): bool
     {
-        $state = $this->read();
-        $revoked = false;
-        if ($state !== null && !$state->isLost()) {
-            try {
-                $this->oauth($state)->revoke($state->refreshToken());
-                $revoked = true;
-            } catch (InstafindException) {
-                // Forget it anyway: see above.
+        // Behind the renewal lock, so no renewal stores new tokens meanwhile.
+        $locked = $this->store->acquireLock(self::LOCK_STALE);
+        if (!$locked) {
+            $this->waitForLock();
+            $locked = $this->store->acquireLock(self::LOCK_STALE);
+        }
+
+        try {
+            $state = $this->read();
+            $revoked = false;
+            if ($state !== null && !$state->isLost()) {
+                try {
+                    $this->oauth($state)->revoke($state->refreshToken());
+                    $revoked = true;
+                } catch (InstafindException) {
+                    // Forget it anyway: see above.
+                }
+            }
+            // Someone connected again while Instafind answered: keep that connection.
+            $now = $this->read();
+            if ($now !== null && $now->refreshToken() !== $state?->refreshToken()) {
+                return $revoked;
+            }
+            $this->store->delete();
+            $this->current = '';
+
+            return $revoked;
+        } finally {
+            if ($locked) {
+                $this->store->releaseLock();
             }
         }
-        // Another process may have connected again while Instafind answered.
-        $now = $this->read();
-        if ($now !== null && $now->refreshToken() !== $state?->refreshToken()) {
-            return $revoked;
-        }
-        $this->store->delete();
-        $this->current = '';
-
-        return $revoked;
     }
 
     public function bearer(): string
@@ -146,10 +159,7 @@ final class OAuthConnection implements Credential
         $before = $this->current;
         if (!$this->store->acquireLock(self::LOCK_STALE)) {
             // Another process is renewing: use what it stores.
-            $deadline = $this->clock->now() + self::LOCK_WAIT;
-            while ($this->clock->now() < $deadline && $this->store->isLocked()) {
-                $this->sleeper->sleep(0.25);
-            }
+            $this->waitForLock();
 
             return $this->takeNewer($before);
         }
@@ -212,6 +222,15 @@ final class OAuthConnection implements Credential
                 }
                 $this->sleeper->sleep(self::REFRESH_PAUSE);
             }
+        }
+    }
+
+    /** Wait until another process releases the lock, or LOCK_WAIT has passed. */
+    private function waitForLock(): void
+    {
+        $deadline = $this->clock->now() + self::LOCK_WAIT;
+        while ($this->clock->now() < $deadline && $this->store->isLocked()) {
+            $this->sleeper->sleep(0.25);
         }
     }
 

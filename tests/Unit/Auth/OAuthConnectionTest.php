@@ -220,6 +220,23 @@ final class OAuthConnectionTest extends TestCase
         self::assertSame('ifr_new', $this->store->load()?->refreshToken());
     }
 
+    public function testDisconnectHoldsTheRenewalLock(): void
+    {
+        $this->connect();
+        $store = $this->store;
+        $lockedDuringRevoke = null;
+        $this->transport = new MockTransport(static function () use ($store, &$lockedDuringRevoke): Response {
+            $lockedDuringRevoke = $store->isLocked();
+
+            return new Response(200, [], '{}');
+        });
+
+        self::assertTrue($this->connection()->disconnect());
+        self::assertTrue($lockedDuringRevoke);
+        self::assertFalse($this->store->isLocked());
+        self::assertNull($this->store->load());
+    }
+
     public function testStateRoundTrips(): void
     {
         $this->connect();
