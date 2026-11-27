@@ -162,7 +162,9 @@ $api = new IntegrationApi('https://platform.instafind.io', $connection);
 - `CurlTransport` is the default. It sends parallel requests with `curl_multi`.
 - `Psr18Transport` works with any PSR-18 client and needs `psr/http-client`
   and `psr/http-factory`. Its requests run one after another, and timeouts are
-  set on the client.
+  set on the client. For an OAuth connection give it a client with a timeout of
+  at most 8 seconds (Guzzle's default is none), or a client of its own: a
+  token refresh that hangs longer can get the connection revoked.
 - `WordPressTransport` uses `wp_remote_request()`, and the Requests library for
   parallel calls. Single requests get WordPress's proxy, CA bundle and filters
   (`pre_http_request`, `http_request_args`); parallel ones get the CA bundle
