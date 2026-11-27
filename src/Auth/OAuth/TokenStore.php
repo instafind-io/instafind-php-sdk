@@ -35,7 +35,9 @@ interface TokenStore
      *                        process that died and may be taken over. Judge
      *                        it by the lock's age alone, even while its
      *                        holder still runs (an `flock()` held by a live
-     *                        process does not qualify), and honour it
+     *                        process does not qualify, nor a transient or
+     *                        cache key that vanishes when it expires: see
+     *                        {@see self::isLocked()}), and honour it
      *                        exactly: a takeover much later than this misses
      *                        Instafind's 60-second retry window, and the
      *                        connection is lost

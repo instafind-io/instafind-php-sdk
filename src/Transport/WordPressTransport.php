@@ -23,6 +23,11 @@ use Instafind\Sdk\Http\Response;
  * that raises it, or a site without ext-curl (whose fallback times each read,
  * not the whole request), can let a refresh outlast the 35-second renewal
  * lock of {@see \Instafind\Sdk\Auth\OAuth\OAuthConnection}.
+ *
+ * Single requests pass through WordPress's hooks, so `http_request_args` and
+ * `http_api_debug` see the `Authorization` header and the token requests'
+ * bodies. A plugin that logs HTTP requests can store access and refresh
+ * tokens in the database: don't run one on a site connected to Instafind.
  */
 final class WordPressTransport implements Transport
 {
