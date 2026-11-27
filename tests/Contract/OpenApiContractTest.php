@@ -187,7 +187,7 @@ final class OpenApiContractTest extends TestCase
         $integration->searchBehaviors($index);
         $integration->putSearchBehaviors($index, []);
         $integration->putFilterValueTree($index, 'category', []);
-        $integration->setCampaignPage($index, null);
+        $integration->setCampaignPage($index, 'https://shop.example.com/campaign/{name}');
         $integration->setUpDefaultFilters($index, []);
         $integration->setUpDefaultTemplate($index, 'x');
         $integration->storedProducts($index, 1, 10, 'x');
