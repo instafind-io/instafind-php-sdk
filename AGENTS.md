@@ -97,6 +97,8 @@ The suite is not in the default `vendor/bin/phpunit` run; run it with
 `scripts/release.sh <patch|minor|major>` shows what would be released;
 `--push` releases, and only once the live integration job has passed on
 `origin/main`'s tip (it prints the `gh workflow run` command otherwise). The
-first release is `major` and gives `v1.0.0`.
+first release is `major` and gives `v1.0.0`. It works in a temporary clone
+of origin and leaves the checkout it runs from alone;
+`tests/scripts/release-test.sh` (in CI) dry-runs it against a throwaway origin.
 `release.yml` refuses a tag whose `Sdk::VERSION` or changelog section does not
 match it. Only with the owner's go.
