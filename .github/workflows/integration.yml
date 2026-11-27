@@ -3,7 +3,7 @@ name: Live integration
 # The SDK against production's "PHP SDK CI" website, with its own
 # least-privilege site key (tests/Integration/LiveApiTest.php says what it
 # writes and cleans up). On a schedule, by hand, and before every release
-# (scripts/release.sh --push refuses a commit without a green run). Never on
+# (scripts/release.sh --push refuses a commit whose newest run is not green). Never on
 # pull requests: secrets must not reach a fork's code.
 
 on:
