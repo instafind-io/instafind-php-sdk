@@ -1,0 +1,92 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Instafind\Sdk\Transport;
+
+use Instafind\Sdk\Exception\TransportException;
+use Instafind\Sdk\Http\Request;
+use Instafind\Sdk\Http\Response;
+use Psr\Http\Client\ClientExceptionInterface;
+use Psr\Http\Client\ClientInterface;
+use Psr\Http\Client\NetworkExceptionInterface;
+use Psr\Http\Client\RequestExceptionInterface;
+use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\StreamFactoryInterface;
+
+/**
+ * {@see Transport} over any PSR-18 client (Guzzle, Symfony HttpClient …).
+ * Needs `psr/http-client` and `psr/http-factory`.
+ *
+ * PSR-18 has no timeouts and no parallel requests: configure the timeout on
+ * the client, and {@see self::sendMany()} sends one request after the other.
+ * Make sure the client does not follow redirects.
+ *
+ * Give the client a timeout of at most 8 seconds (Guzzle's default is none),
+ * or, if other calls need longer, give the transport for
+ * {@see \Instafind\Sdk\Auth\OAuth\OAuthConnection} a client of its own.
+ * {@see \Instafind\Sdk\Auth\OAuth\OAuthConnection} holds its renewal lock
+ * for at most 35 seconds before another process may take it over: a refresh
+ * that hangs longer lets that process spend the same refresh token, and
+ * Instafind then revokes the connection. With a slower client the SDK makes
+ * fewer refresh attempts, but it cannot cut a request that never ends.
+ */
+final class Psr18Transport implements Transport
+{
+    public function __construct(
+        private readonly ClientInterface $client,
+        private readonly RequestFactoryInterface $requestFactory,
+        private readonly StreamFactoryInterface $streamFactory,
+    ) {}
+
+    public function send(Request $request): Response
+    {
+        $psr = $this->requestFactory->createRequest($request->method(), $request->url());
+        foreach ($request->headers() as $name => $value) {
+            $psr = $psr->withHeader($name, $value);
+        }
+        if ($request->body() !== null) {
+            $psr = $psr->withBody($this->streamFactory->createStream($request->body()));
+        }
+
+        // The client's exception is not chained: it may carry the request,
+        // and with it a bearer token or a refresh token.
+        try {
+            $response = $this->client->sendRequest($psr);
+        } catch (NetworkExceptionInterface|RequestExceptionInterface $e) {
+            throw new TransportException('Instafind could not be reached: ' . $e->getMessage(), $request->url());
+        } catch (ClientExceptionInterface $e) {
+            throw new TransportException('The HTTP client failed: ' . $e->getMessage(), $request->url());
+        }
+
+        $headers = [];
+        foreach ($response->getHeaders() as $name => $values) {
+            $last = end($values);
+            $headers[strtolower((string) $name)] = $last === false ? '' : (string) $last;
+        }
+
+        try {
+            $body = (string) $response->getBody();
+        } catch (\Exception $e) {
+            // A streamed body can fail while it is read (some streams warn,
+            // and the host may turn the warning into an ErrorException).
+            throw new TransportException('The answer could not be read: ' . $e->getMessage(), $request->url());
+        }
+
+        return new Response($response->getStatusCode(), $headers, $body);
+    }
+
+    public function sendMany(array $requests): array
+    {
+        $out = [];
+        foreach ($requests as $key => $request) {
+            try {
+                $out[$key] = $this->send($request);
+            } catch (TransportException $e) {
+                $out[$key] = $e;
+            }
+        }
+
+        return $out;
+    }
+}
