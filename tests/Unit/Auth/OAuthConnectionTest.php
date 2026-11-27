@@ -43,6 +43,11 @@ final class OAuthConnectionTest extends TestCase
 
     private function connection(): OAuthConnection
     {
+        return new OAuthConnection($this->store, $this->transport, null, $this->observer(), $this->clock, $this->sleeper);
+    }
+
+    private function observer(): ConnectionObserver
+    {
         $failures = &$this->failures;
         $observer = new class ($failures) implements ConnectionObserver {
             /** @var \Closure(string, bool): void */
@@ -62,7 +67,7 @@ final class OAuthConnectionTest extends TestCase
             }
         };
 
-        return new OAuthConnection($this->store, $this->transport, null, $observer, $this->clock, $this->sleeper);
+        return $observer;
     }
 
     private function connect(int $expiresIn = 3600): OAuthConnection
@@ -97,6 +102,7 @@ final class OAuthConnectionTest extends TestCase
         self::assertSame('ifa_1', $worker->bearer());
 
         // And reconnects to another website: the worker follows at once.
+        $this->transport->queueJson(200, []);
         $this->connection()->connect(OAuthClientTest::server(), 'client-1', new Tokens('ifa_other', 'ifr_other', $this->clock->now + 3600));
         self::assertSame('ifa_other', $worker->bearer());
     }
@@ -341,6 +347,47 @@ final class OAuthConnectionTest extends TestCase
 
         self::assertTrue($connection->renew());
         self::assertTrue($store->isLocked());
+    }
+
+    public function testReconnectingRevokesTheEarlierConnection(): void
+    {
+        $this->connect();
+        $this->transport->queueJson(200, []);
+
+        $this->connection()->connect(OAuthClientTest::server(), 'client-1', new Tokens('ifa_other', 'ifr_other', $this->clock->now + 3600));
+
+        self::assertSame('ifr_other', $this->store->load()?->refreshToken());
+        self::assertCount(1, $this->transport->requests());
+        parse_str((string) $this->transport->lastRequest()->body(), $form);
+        self::assertSame('ifr_1', $form['token']);
+    }
+
+    public function testReconnectingWorksWhenTheRevocationFails(): void
+    {
+        $this->connect();
+        $this->transport->queueFailure();
+
+        $this->connection()->connect(OAuthClientTest::server(), 'client-1', new Tokens('ifa_other', 'ifr_other', $this->clock->now + 3600));
+
+        self::assertSame('ifr_other', $this->store->load()?->refreshToken());
+        self::assertFalse($this->store->isLocked());
+    }
+
+    public function testTokensLostAfterARenewalAreReported(): void
+    {
+        $this->connect(30);
+        // The store forgets the connection while the refresh is under way.
+        $transport = new MockTransport(function (): Response {
+            $this->store->delete();
+
+            return new Response(200, ['content-type' => 'application/json'], (string) json_encode(['access_token' => 'ifa_2', 'refresh_token' => 'ifr_2', 'expires_in' => 3600]));
+        });
+        $connection = new OAuthConnection($this->store, $transport, null, $this->observer(), $this->clock, $this->sleeper);
+        $connection->bearer();
+
+        self::assertCount(1, $this->failures);
+        self::assertStringContainsString('not saved', $this->failures[0][0]);
+        self::assertFalse($this->failures[0][1]);
     }
 
     public function testDisconnectRevokesAndForgets(): void

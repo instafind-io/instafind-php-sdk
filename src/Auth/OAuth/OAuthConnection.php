@@ -56,7 +56,7 @@ final class OAuthConnection implements Credential
 
     /**
      * A lock older than this was left by a process that died. Longer than a
-     * renewal can take (28 s of refresh attempts plus the store), and short
+     * renewal can take (30 s of refresh attempts plus the store), and short
      * enough that the process taking over repeats the dead one's refresh
      * inside Instafind's 60-second retry window, which counts from the
      * token's first use. At 60 s the takeover came too late, and the
@@ -90,7 +90,9 @@ final class OAuthConnection implements Credential
     }
 
     /**
-     * Store a new connection after the code exchange, replacing any earlier one.
+     * Store a new connection after the code exchange, replacing any earlier
+     * one. A working earlier connection is revoked in Instafind, best effort:
+     * nobody holds its tokens afterwards, so it could not be ended from here.
      *
      * @throws InstafindException when the renewal lock stays taken; nothing was stored
      */
@@ -99,7 +101,15 @@ final class OAuthConnection implements Credential
         // Behind the renewal lock, so a running renewal cannot overwrite it.
         $this->lock();
         try {
+            $earlier = $this->read();
             $this->write(ConnectionState::fromTokens($server, $clientId, $tokens));
+            if ($earlier !== null && !$earlier->isLost() && $earlier->refreshToken() !== $tokens->refreshToken()) {
+                try {
+                    $this->oauth($earlier)->revoke($earlier->refreshToken());
+                } catch (InstafindException) {
+                    // Best effort, as in disconnect().
+                }
+            }
         } finally {
             $this->unlock();
         }
@@ -194,9 +204,18 @@ final class OAuthConnection implements Credential
             $tokens = $this->refresh($this->oauth($state), $spent);
 
             // Store the new tokens only if the connection is still the one
-            // refreshed: a disconnect or a new connection may have replaced it.
+            // refreshed: a new connection may have replaced it, and then this
+            // one takes what is stored.
             $now = $this->read();
-            if ($now === null || $now->refreshToken() !== $spent) {
+            if ($now === null) {
+                // Disconnected meanwhile, or the store failed to read: the host
+                // has to know, because the new tokens are lost. Not revoked and
+                // not reported as lost: after a failed read the stored
+                // connection comes back, and its next renewal inside
+                // Instafind's 60-second retry window still gets them.
+                throw new InstafindException('The stored Instafind connection was gone after the renewal; its new tokens were not saved.');
+            }
+            if ($now->refreshToken() !== $spent) {
                 return $this->takeNewer($before);
             }
             $this->write($now->withTokens($tokens));
