@@ -13,6 +13,7 @@ use Instafind\Sdk\Auth\OAuth\Tokens;
 use Instafind\Sdk\Auth\OAuth\TokenStore;
 use Instafind\Sdk\Exception\InstafindException;
 use Instafind\Sdk\Exception\TransportException;
+use Instafind\Sdk\Http\Request;
 use Instafind\Sdk\Http\Response;
 use Instafind\Sdk\Support\Sleeper;
 use Instafind\Sdk\Testing\MockTransport;
@@ -377,8 +378,11 @@ final class OAuthConnectionTest extends TestCase
     {
         $this->connect(30);
         // The store forgets the connection while the refresh is under way.
-        $transport = new MockTransport(function (): Response {
+        $bodies = [];
+        $transport = new MockTransport(function (Request $request) use (&$bodies): Response {
             $this->store->delete();
+            parse_str((string) $request->body(), $form);
+            $bodies[] = $form;
 
             return new Response(200, ['content-type' => 'application/json'], (string) json_encode(['access_token' => 'ifa_2', 'refresh_token' => 'ifr_2', 'expires_in' => 3600]));
         });
@@ -387,7 +391,11 @@ final class OAuthConnectionTest extends TestCase
 
         self::assertCount(1, $this->failures);
         self::assertStringContainsString('not saved', $this->failures[0][0]);
-        self::assertFalse($this->failures[0][1]);
+        // Nobody holds the new tokens: the connection is over, and ended in Instafind.
+        self::assertTrue($this->failures[0][1]);
+        self::assertCount(2, $bodies);
+        self::assertSame('ifr_2', $bodies[1]['token']);
+        self::assertFalse($this->store->isLocked());
     }
 
     public function testDisconnectRevokesAndForgets(): void
