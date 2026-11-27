@@ -33,9 +33,9 @@ if [[ -z "$bump" ]]; then
     exit 2
 fi
 
-# git commands in the clone must act on the clone: an exported GIT_DIR or
-# GIT_WORK_TREE would point them at the caller's repository.
-for var in GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE; do
+# git commands in the clone must act on the clone: an exported GIT_DIR,
+# GIT_OBJECT_DIRECTORY and the like would point them at the caller's repository.
+for var in GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_NAMESPACE; do
     if [[ -n "${!var:-}" ]]; then
         echo "$var is set in the environment; unset it and run this again." >&2
         exit 1
@@ -105,19 +105,37 @@ for push_url in "${push_urls[@]}"; do
         git -C "$tree" config --add remote.origin.pushurl "$push_url"
     fi
 done
+# Global insteadOf rules apply again in the clone, to URLs already rewritten
+# above: check the URLs the clone itself will use.
+while IFS= read -r url; do check_url "$url" fetch; done < <(git -C "$tree" remote get-url --all origin)
+while IFS= read -r url; do check_url "$url" push; done < <(git -C "$tree" remote get-url --push --all origin)
 if [[ -n "$latest" ]]; then
     git -C "$tree" fetch --quiet --no-tags origin "refs/tags/$latest:refs/tags/$latest"
 fi
 
 # The release commit and tag are made in the clone. Config the checkout gets
 # from `includeIf "gitdir:…"` or from its own .git/config does not reach a
-# clone in a temporary directory, so refuse when it would commit as someone else.
-ident() { git "$@" var GIT_COMMITTER_IDENT 2>/dev/null | sed -E 's/ [0-9]+ [-+][0-9]{4}$//'; }
-if [[ "$(ident)" != "$(ident -C "$tree")" ]]; then
-    echo "The temporary clone would commit as '$(ident -C "$tree")', this checkout as '$(ident)'." >&2
-    echo "Set user.name and user.email in your global git config (not per repository or with includeIf), then run this again." >&2
-    exit 1
-fi
+# clone in a temporary directory, so refuse when it would commit or tag as
+# someone else, sign differently, or reach GitHub with another SSH command.
+ident() { git "$@" 2>/dev/null | sed -E 's/ [0-9]+ [-+][0-9]{4}$//' || true; }
+for key in GIT_AUTHOR_IDENT GIT_COMMITTER_IDENT; do
+    here=$(ident var "$key")
+    there=$(ident -C "$tree" var "$key")
+    if [[ "$here" != "$there" ]]; then
+        echo "The temporary clone's $key would be '$there', this checkout's '$here'." >&2
+        echo "Set user.name and user.email in your global git config (not per repository or with includeIf), then run this again." >&2
+        exit 1
+    fi
+done
+for key in commit.gpgSign tag.gpgSign user.signingKey gpg.format gpg.program core.sshCommand; do
+    here=$(git config --get "$key" || true)
+    there=$(git -C "$tree" config --get "$key" || true)
+    if [[ "$here" != "$there" ]]; then
+        echo "This checkout's $key is '$here', the temporary clone's would be '$there'." >&2
+        echo "Set it in your global git config (not per repository or with includeIf), or unset it here, then run this again." >&2
+        exit 1
+    fi
+done
 
 changelog="$tree/CHANGELOG.md"
 version_file="$tree/src/Sdk.php"
@@ -219,7 +237,11 @@ git -C "$tree" rm --quiet -- 'changelog.d/*.md' ':!changelog.d/README.md'
 git -C "$tree" commit --quiet -am "Release $tag"
 git -C "$tree" tag -a "$tag" -m "$tag"
 if ! git -C "$tree" push --quiet --atomic origin HEAD:refs/heads/main "refs/tags/$tag"; then
-    echo "Push refused, nothing released. If main moved, run this again." >&2
+    if [[ ${#push_urls[@]} -gt 1 ]]; then
+        echo "A push was refused. Each push URL takes main and $tag together or not at all, but another may have taken them: check with git ls-remote --tags on each before running this again." >&2
+    else
+        echo "Push refused, nothing released. If main moved, run this again." >&2
+    fi
     exit 1
 fi
 

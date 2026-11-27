@@ -99,6 +99,6 @@ The suite is not in the default `vendor/bin/phpunit` run; run it with
 `origin/main`'s tip (it prints the `gh workflow run` command otherwise). The
 first release is `major` and gives `v1.0.0`. It works in a temporary clone
 of origin and leaves the checkout it runs from alone;
-`tests/scripts/release-test.sh` (in CI) dry-runs it against a throwaway origin.
+`tests/scripts/release-test.sh` (in CI) runs it against a throwaway origin, with a stub `gh` for its one `--push`.
 `release.yml` refuses a tag whose `Sdk::VERSION` or changelog section does not
 match it. Only with the owner's go.

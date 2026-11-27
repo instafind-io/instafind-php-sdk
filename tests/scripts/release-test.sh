@@ -3,8 +3,9 @@
 # Dry runs of scripts/release.sh against a throwaway origin (a bare repository
 # in a temporary directory): the next version and notes it prints, what it
 # refuses, and that it leaves the checkout it runs from alone (no tag, no
-# worktree, no change) and its temporary clone removed. --push is not run: it
-# needs GitHub for the live-integration gate.
+# worktree, no change) and its temporary clone removed. Last, one --push into
+# the throwaway origin and a second push URL, with a stub gh for the
+# live-integration gate.
 #
 # Usage: tests/scripts/release-test.sh
 
@@ -121,13 +122,24 @@ git remote set-url origin "$base/origin.git"
 git config --add remote.origin.url "$base/other.git"
 expect "an origin with two URLs is refused" 1 'origin has 2 URLs' -- scripts/release.sh patch
 git config --unset remote.origin.url "$base/other\.git"
+# alias: becomes the GitHub URL in this checkout, which the clone rewrites again
+# to the throwaway origin. GIT_SSH_COMMAND=false keeps ls-remote off the network.
+git remote set-url origin alias:instafind-io/instafind-php-sdk.git
+expect "a URL that global insteadOf rewrites again in the clone is checked there" 1 "fetch URL is $base/origin\.git" -- env RELEASE_ALLOW_ANY_ORIGIN= GIT_SSH_COMMAND=false GIT_CONFIG_COUNT=2 GIT_CONFIG_KEY_0=url.ssh://git@github.com/.insteadOf GIT_CONFIG_VALUE_0=alias: GIT_CONFIG_KEY_1="url.$base/origin.git.insteadOf" GIT_CONFIG_VALUE_1=ssh://git@github.com/instafind-io/instafind-php-sdk.git scripts/release.sh major
+git remote set-url origin "$base/origin.git"
 expect "a global clone.defaultRemoteName does not rename the clone's remote" 0 '^v1\.0\.0 -> v2\.0\.0$' -- env GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=clone.defaultRemoteName GIT_CONFIG_VALUE_0=upstream scripts/release.sh major
 
 # An identity only this checkout has (includeIf, or .git/config) would not reach the clone.
 git config user.name "Local Only"
 git config user.email local@example.invalid
-expect "an identity the clone would not have is refused" 1 'would commit as' -- env -u GIT_COMMITTER_NAME -u GIT_COMMITTER_EMAIL scripts/release.sh patch
+expect "an identity the clone would not have is refused" 1 "GIT_COMMITTER_IDENT would be" -- env -u GIT_COMMITTER_NAME -u GIT_COMMITTER_EMAIL scripts/release.sh patch
 git config --unset user.name && git config --unset user.email
+git config author.email local@example.invalid
+expect "an author the clone would not have is refused" 1 "GIT_AUTHOR_IDENT would be" -- env -u GIT_AUTHOR_NAME -u GIT_AUTHOR_EMAIL scripts/release.sh patch
+git config --unset author.email
+git config tag.gpgSign true
+expect "signing only this checkout has is refused" 1 "This checkout's tag.gpgSign is 'true'" -- scripts/release.sh patch
+git config --unset tag.gpgSign
 
 # The owner's rule: no hand-made worktrees, so the script clones instead.
 if grep -qE '^[^#]*git[^#]*worktree' "$repo/scripts/release.sh"; then
@@ -142,8 +154,26 @@ fi
 [[ -z "$(ls -A "$TMPDIR")" ]] || fail "temporary files were left: $(ls -A "$TMPDIR")"
 [[ "$(git -C "$base/origin.git" tag -l)" == "v1.0.0" ]] || fail "origin got tags: $(git -C "$base/origin.git" tag -l | tr '\n' ' ')"
 
+# --push, with a stub gh that reports a green live integration run: main and
+# the tag go to every push URL, and the checkout still gets nothing.
+mkdir "$base/bin"
+printf '#!/bin/sh\necho 1\n' > "$base/bin/gh"
+chmod +x "$base/bin/gh"
+git init --quiet --bare "$base/mirror.git"
+git config --add remote.origin.pushurl "$base/origin.git"
+git config --add remote.origin.pushurl "$base/mirror.git"
+expect "--push releases v2.0.0" 0 '^Pushed v2\.0\.0\.' -- env PATH="$base/bin:$PATH" scripts/release.sh major --push
+git config --unset-all remote.origin.pushurl
+for remote in origin mirror; do
+    [[ "$(git -C "$base/$remote.git" tag -l v2.0.0)" == "v2.0.0" ]] || fail "$remote did not get v2.0.0"
+    [[ "$(git -C "$base/$remote.git" log -1 --format=%s main)" == "Release v2.0.0" ]] || fail "$remote's main is not the release commit"
+done
+git -C "$base/origin.git" show main:src/Sdk.php | grep -qF "VERSION = '2.0.0'" || fail "the release commit does not set Sdk::VERSION"
+[[ "$(git tag -l)" == "v1.0.0" ]] || fail "--push left tags in the checkout: $(git tag -l | tr '\n' ' ')"
+[[ -z "$(ls -A "$TMPDIR")" ]] || fail "--push left temporary files: $(ls -A "$TMPDIR")"
+
 if [[ "$failures" -gt 0 ]]; then
     echo "$failures failed." >&2
     exit 1
 fi
-echo "All release dry runs passed."
+echo "All release runs passed."
