@@ -453,7 +453,9 @@ final class IntegrationApi
             return self::map($this->api->send($request));
         } catch (ApiException $e) {
             if ($e->status() === 404 && $e->errorCode() === 'not_found') {
-                throw IndexNotFoundException::from($e, $indexId);
+                // The integration API answers a plain `not_found` for an
+                // index outside the credential's grant or already gone.
+                throw new IndexNotFoundException("Instafind has no index $indexId for this credential: " . $e->getMessage(), 404, 'index_not_found', $e->retryAfter(), $e->body(), $e);
             }
             throw $e;
         }
