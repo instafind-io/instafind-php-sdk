@@ -72,4 +72,6 @@ jobs:
         run: |
           grep -qE "public const VERSION = '(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-dev)?';" src/Sdk.php
       - name: Shell scripts
-        run: shellcheck scripts/*.sh
+        run: shellcheck scripts/*.sh tests/scripts/*.sh
+      - name: Release script dry runs
+        run: tests/scripts/release-test.sh
