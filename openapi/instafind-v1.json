@@ -288,9 +288,53 @@
                         }
                     }
                 ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "campaign_page_url"
+                                ],
+                                "properties": {
+                                    "campaign_page_url": {
+                                        "description": "Full https address of the shop's campaign page; `{name}`, at most once, stands for the campaign name.",
+                                        "type": "string",
+                                        "example": "https://shop.example/campaign/{name}",
+                                        "maxLength": 2048
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
                 "responses": {
                     "200": {
-                        "description": "Saved"
+                        "description": "Saved",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "required": [
+                                        "data"
+                                    ],
+                                    "properties": {
+                                        "data": {
+                                            "required": [
+                                                "campaign_page_url"
+                                            ],
+                                            "properties": {
+                                                "campaign_page_url": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "403": {
                         "description": "The key lacks indexes:manage"
@@ -390,7 +434,8 @@
                                                         "already_set",
                                                         "no_products",
                                                         "not_ready",
-                                                        "nothing_to_show"
+                                                        "nothing_to_show",
+                                                        null
                                                     ]
                                                 },
                                                 "sidebar": {
@@ -4100,7 +4145,7 @@
         "securitySchemes": {
             "apiKey": {
                 "type": "http",
-                "description": "Sent as `Authorization: Bearer …`. Accepted by `/api/integration/v1` only. Two kinds of\ncredential reach it:\n\n- a site API key (`ifk_…`), created by a site admin on the site's **API keys** page or with\n  `php artisan api-keys:create`. It expires after at most a year and can be rotated with a\n  grace period or revoked;\n- an OAuth access token (`ifa_…`, valid for one hour) issued to an app connected through\n  \"Connect to instafind\". The app renews it with its refresh token.\n\nEither way the credential belongs to one website, not to a person. It holds scopes\n(`indexes:read`, `indexes:manage`, `products:read`, `products:write`, `products:delete`,\n`analytics:read`, `orders:write`) and covers either all of the site's indexes or a chosen list; anything\noutside that answers 404, exactly like a missing record.",
+                "description": "Sent as `Authorization: Bearer …`. Accepted by `/api/integration/v1` only. Two kinds of\ncredential reach it:\n\n- a site API key (`ifk_…`), created by a site admin on the site's **API keys** page or with\n  `php artisan api-keys:create`. It expires after the lifetime chosen at creation, or never, and\n  can be rotated with a grace period or revoked;\n- an OAuth access token (`ifa_…`, valid for one hour) issued to an app connected through\n  \"Connect to instafind\". The app renews it with its refresh token.\n\nEither way the credential belongs to one website, not to a person. It holds scopes\n(`indexes:read`, `indexes:manage`, `products:read`, `products:write`, `products:delete`,\n`analytics:read`, `orders:write`) and covers either all of the site's indexes or a chosen list; anything\noutside that answers 404, exactly like a missing record.",
                 "bearerFormat": "ifk_… or ifa_…",
                 "scheme": "bearer"
             }
