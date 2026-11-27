@@ -101,7 +101,7 @@ final class CurlTransportTest extends TestCase
         // PHP's built-in server sometimes lets one worker take several of the
         // connections and answer them in turn, so take the best of a few tries.
         $fastest = INF;
-        for ($try = 0; $try < 5 && $fastest >= 1.2; $try++) {
+        for ($try = 0; $try < 5 && $fastest >= 1.0; $try++) {
             $start = microtime(true);
             $out = (new CurlTransport())->sendMany($requests);
             $fastest = min($fastest, microtime(true) - $start);
@@ -112,8 +112,9 @@ final class CurlTransportTest extends TestCase
                 self::assertSame('/slow?ms=400&i=' . $i, self::echo($response)['uri']);
             }
         }
-        // One after the other would take 1.6 s.
-        self::assertLessThan(1.2, $fastest);
+        // One after the other takes at least 1.6 s; anything clearly below is
+        // parallel. A shared CI runner needs the headroom (1.2 s failed at 1.202).
+        self::assertLessThan(1.55, $fastest);
     }
 
     public function testSendManyWithNothing(): void
