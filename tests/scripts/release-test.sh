@@ -11,6 +11,10 @@
 
 set -euo pipefail
 
+# The fixture's git commands must act on its own repositories only, never on
+# one an inherited GIT_DIR, GIT_INDEX_FILE and the like would point at.
+unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_NAMESPACE GIT_CONFIG GIT_CONFIG_PARAMETERS GIT_CONFIG_COUNT
+
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 base=$(mktemp -d)
 trap 'rm -rf "$base"' EXIT
