@@ -124,7 +124,10 @@ git config --unset remote.origin.pushurl
 git remote set-url origin "$base/origin.git"
 git remote set-url origin https://user:s3cret@example.com/x.git
 expect "a refused URL is shown without its credentials" 1 "fetch URL is https://\*\*\*@example\.com/x\.git" -- env RELEASE_ALLOW_ANY_ORIGIN= scripts/release.sh patch
-[[ "$(env RELEASE_ALLOW_ANY_ORIGIN= scripts/release.sh patch 2>&1)" != *s3cret* ]] || fail "a refused URL shows its token"
+for url in https://user:s3cret@example.com/x.git HTTPS://user:s3cret@github.com/x.git "https://user:s3@cret@example.com/x.git"; do
+    git remote set-url origin "$url"
+    [[ "$(env RELEASE_ALLOW_ANY_ORIGIN= scripts/release.sh patch 2>&1)" != *cret* ]] || fail "a refused URL shows its token: $url"
+done
 git remote set-url origin "$base/origin.git"
 git config --add remote.origin.url "$base/other.git"
 expect "an origin with two URLs is refused" 1 'origin has 2 URLs' -- scripts/release.sh patch

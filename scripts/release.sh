@@ -50,7 +50,7 @@ github='^(https://github\.com/|git@github\.com:|ssh://git@github\.com/)instafind
 check_url() {
     if [[ "${RELEASE_ALLOW_ANY_ORIGIN:-}" != "1" && ! "$1" =~ $github ]]; then
         # Without a user or token in it: the message may end up in a log.
-        echo "origin's $2 URL is $(sed -E 's|^([a-z+]+://)[^/@]*@|\1***@|' <<< "$1"), not instafind-io/instafind-php-sdk on GitHub. Release from a plain clone of it." >&2
+        echo "origin's $2 URL is $(sed -E 's|^([A-Za-z][A-Za-z0-9+.-]*://)[^/]*@|\1***@|' <<< "$1"), not instafind-io/instafind-php-sdk on GitHub. Release from a plain clone of it." >&2
         exit 1
     fi
 }
