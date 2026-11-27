@@ -3,16 +3,15 @@ name: Live integration
 # The SDK against production's "PHP SDK CI" website, with its own
 # least-privilege site key (tests/Integration/LiveApiTest.php says what it
 # writes and cleans up). On a schedule, by hand, and before every release
-# (scripts/release.sh --push refuses a commit without a green run). Never on
+# (scripts/release.sh --push refuses a commit whose newest run is not green). Never on
 # pull requests: secrets must not reach a fork's code.
-#
-# Off until backend v3.0.0 is released: the new /api/public/v1 paths answer
-# only from then on. To turn it on, uncomment the schedule.
 
 on:
   workflow_dispatch:
-  # schedule:
-  #   - cron: '17 5 * * *'
+  # Once a day, at an odd minute to miss the top-of-hour rush. Scheduled runs
+  # use main, the only branch the live-integration environment allows.
+  schedule:
+    - cron: '17 5 * * *'
 
 permissions:
   contents: read

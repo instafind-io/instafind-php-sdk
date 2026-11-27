@@ -218,17 +218,19 @@ if [[ "$push" != "1" ]]; then
 fi
 
 # The live integration job must have passed on origin/main's tip, which the
-# release commit goes on top of.
+# release commit goes on top of. The newest finished run counts, not any green
+# one: the daily schedule runs the same commit again, and a later red run means
+# production no longer works with it.
 sha=$(git -C "$tree" rev-parse HEAD)
 gh_err=$(mktemp)
-if ! green=$(gh run list --repo instafind-io/instafind-php-sdk --workflow=integration.yml --commit "$sha" --status success --limit 1 --json databaseId --jq length 2>"$gh_err"); then
+if ! latest_run=$(gh run list --repo instafind-io/instafind-php-sdk --workflow=integration.yml --commit "$sha" --status completed --limit 1 --json conclusion --jq '.[0].conclusion // ""' 2>"$gh_err"); then
     echo "Could not ask GitHub for live integration runs: $(cat "$gh_err")" >&2
     rm -f "$gh_err"
     exit 1
 fi
 rm -f "$gh_err"
-if [[ "$green" != "1" ]]; then
-    echo "No green live integration run on $sha. Run it, wait for it, then release:" >&2
+if [[ "$latest_run" != "success" ]]; then
+    echo "The newest finished live integration run on $sha is ${latest_run:-missing}, not success. Run it, wait for it, then release:" >&2
     echo "  gh workflow run integration.yml --repo instafind-io/instafind-php-sdk --ref main" >&2
     exit 1
 fi
