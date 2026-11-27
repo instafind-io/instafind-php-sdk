@@ -43,6 +43,7 @@ From `v1.0.0` on, these rules decide what is breaking (major), and the README's
 
 - `src/PublicApi.php`, `src/IntegrationApi.php`, `src/ClientOptions.php`: the entry points.
 - `src/Search/`: queries, results and enums of the public API.
+- `src/Integration/`: results and enums of the integration API; `src/Indexing/` the `BulkLoader`; `src/Schema/` `IndexSchema` and `FieldType`.
 - `src/Transport/`: the `Transport` interface and its adapters (cURL default, PSR-18, WordPress).
 - `src/Auth/`: `Credential`, `StaticKey`, and `OAuth/` (PKCE flow, `OAuthConnection`, the host's `TokenStore`).
 - `src/Http/`: `Request`, `Response`, `RetryPolicy`, `UserAgent`; `ApiClient` is `@internal` plumbing.

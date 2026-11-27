@@ -94,10 +94,13 @@ final class ApiClient
      *
      * @return array<array-key, mixed> the decoded JSON body ([] for an empty one)
      *
+     * @param RetryPolicy|null $retryPolicy this request's own, instead of the client's
+     *
      * @throws InstafindException
      */
-    public function send(Request $request): array
+    public function send(Request $request, ?RetryPolicy $retryPolicy = null): array
     {
+        $policy = $retryPolicy ?? $this->retryPolicy;
         $renewed = false;
         for ($attempt = 1; ; $attempt++) {
             try {
@@ -108,12 +111,12 @@ final class ApiClient
                     $attempt--;
                     continue;
                 }
-                $delay = $this->retryPolicy->delayBeforeRetry($e, $request, $attempt);
+                $delay = $policy->delayBeforeRetry($e, $request, $attempt);
                 if ($delay === null) {
                     throw $e;
                 }
             } catch (TransportException $e) {
-                $delay = $this->retryPolicy->delayBeforeRetry($e, $request, $attempt);
+                $delay = $policy->delayBeforeRetry($e, $request, $attempt);
                 if ($delay === null) {
                     throw $e;
                 }
