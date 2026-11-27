@@ -18,6 +18,11 @@ use Instafind\Sdk\Http\Response;
  * filters; on a site with a proxy or blocked external requests,
  * {@see self::sendMany()} therefore sends one request after the other through
  * `wp_remote_request()` instead.
+ *
+ * Each request's timeout is the SDK's (8 s for an OAuth refresh). A filter
+ * that raises it, or a site without ext-curl (whose fallback times each read,
+ * not the whole request), can let a refresh outlast the 35-second renewal
+ * lock of {@see \Instafind\Sdk\Auth\OAuth\OAuthConnection}.
  */
 final class WordPressTransport implements Transport
 {

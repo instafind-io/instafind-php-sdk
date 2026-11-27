@@ -43,6 +43,15 @@ final class OAuthConnection implements Credential
     private const REFRESH_PAUSE = 2.0;
 
     /**
+     * Seconds after taking the lock by which the refresh attempts must have
+     * ended (3 × 8 s plus the pauses). Another attempt starts only if it
+     * would end in time, assuming it lasts as long as the slowest one so far:
+     * with a transport that ignores the timeout (a PSR-18 client, a filtered
+     * WordPress request) a renewal could otherwise outlast LOCK_STALE.
+     */
+    private const REFRESH_BUDGET = 28;
+
+    /**
      * A lock older than this was left by a process that died. Longer than a
      * renewal can take (28 s of refresh attempts plus the store), and short
      * enough that the process taking over repeats the dead one's refresh
@@ -52,14 +61,14 @@ final class OAuthConnection implements Credential
      */
     private const LOCK_STALE = 35;
 
-    /** How long to wait for another process's renewal: longer than one can take. */
-    private const LOCK_WAIT = 30;
-
     /** Token endpoint errors that end the connection. */
     private const FATAL_ERRORS = ['invalid_grant', 'invalid_client', 'unauthorized_client'];
 
     /** The access token the last request was sent with. */
     private string $current = '';
+
+    /** When this process took the renewal lock. */
+    private int $lockedAt = 0;
 
     private readonly Clock $clock;
 
@@ -89,7 +98,7 @@ final class OAuthConnection implements Credential
         try {
             $this->write(ConnectionState::fromTokens($server, $clientId, $tokens));
         } finally {
-            $this->store->releaseLock();
+            $this->unlock();
         }
     }
 
@@ -141,7 +150,7 @@ final class OAuthConnection implements Credential
 
             return $revoked;
         } finally {
-            $this->store->releaseLock();
+            $this->unlock();
         }
     }
 
@@ -162,10 +171,12 @@ final class OAuthConnection implements Credential
     public function renew(): bool
     {
         $before = $this->current;
-        if (!$this->store->acquireLock(self::LOCK_STALE)) {
-            // Another process is renewing: use what it stores.
-            $this->waitForLock();
-
+        try {
+            // Waits for another process's renewal, or takes over the lock it
+            // left when it died, early enough to repeat its refresh inside
+            // Instafind's retry window.
+            $this->lock();
+        } catch (InstafindException) {
             return $this->takeNewer($before);
         }
 
@@ -205,7 +216,7 @@ final class OAuthConnection implements Credential
             }
             $failure = $e;
         } finally {
-            $this->store->releaseLock();
+            $this->unlock();
         }
 
         // After the lock is released: an observer may connect or disconnect.
@@ -220,12 +231,17 @@ final class OAuthConnection implements Credential
      */
     private function refresh(OAuthClient $oauth, #[\SensitiveParameter] string $refreshToken): Tokens
     {
+        $slowest = (int) ceil(self::REFRESH_TIMEOUT);
         for ($attempt = 1; ; $attempt++) {
+            $started = $this->clock->now();
             try {
                 return $oauth->refresh($refreshToken);
             } catch (InstafindException $e) {
+                $now = $this->clock->now();
+                $slowest = max($slowest, $now - $started);
                 $clientError = $e instanceof ApiException && $e->status() >= 400 && $e->status() < 500;
-                if ($clientError || $attempt >= self::REFRESH_ATTEMPTS) {
+                $inTime = $now - $this->lockedAt + (int) ceil(self::REFRESH_PAUSE) + $slowest <= self::REFRESH_BUDGET;
+                if ($clientError || $attempt >= self::REFRESH_ATTEMPTS || !$inTime) {
                     throw $e;
                 }
                 $this->sleeper->sleep(self::REFRESH_PAUSE);
@@ -250,14 +266,17 @@ final class OAuthConnection implements Credential
             }
             $this->sleeper->sleep(0.25);
         }
+        $this->lockedAt = $this->clock->now();
     }
 
-    /** Wait until another process releases the lock, or LOCK_WAIT has passed. */
-    private function waitForLock(): void
+    /**
+     * Release the lock, unless this process held it so long that another may
+     * have taken it over as stale: releasing would then free that one's lock.
+     */
+    private function unlock(): void
     {
-        $deadline = $this->clock->now() + self::LOCK_WAIT;
-        while ($this->clock->now() < $deadline && $this->store->isLocked()) {
-            $this->sleeper->sleep(0.25);
+        if ($this->clock->now() - $this->lockedAt < self::LOCK_STALE - 1) {
+            $this->store->releaseLock();
         }
     }
 

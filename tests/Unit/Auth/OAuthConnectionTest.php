@@ -188,59 +188,131 @@ final class OAuthConnectionTest extends TestCase
         self::assertSame([], $this->transport->requests());
     }
 
-    public function testALeftoverLockIsTakenOverInsideInstafindsRetryWindow(): void
+    /**
+     * A store whose lock goes stale like a real one's: after $staleAfter
+     * seconds on the clock, another process may take it over.
+     */
+    private function staleLockStore(): TokenStore
     {
-        $store = new class ($this->store) implements TokenStore {
-            /** @var list<int> */
-            public array $staleAfter = [];
+        return new class ($this->clock) implements TokenStore {
+            private ?ConnectionState $state = null;
 
-            public function __construct(private InMemoryTokenStore $inner) {}
+            public ?int $lockedAt = null;
+
+            public function __construct(private FakeClock $clock) {}
 
             public function load(): ?ConnectionState
             {
-                return $this->inner->load();
+                return $this->state;
             }
 
             public function save(ConnectionState $state): void
             {
-                $this->inner->save($state);
+                $this->state = $state;
             }
 
             public function delete(): void
             {
-                $this->inner->delete();
+                $this->state = null;
             }
 
             public function acquireLock(int $staleAfter): bool
             {
-                $this->staleAfter[] = $staleAfter;
+                if ($this->lockedAt !== null && $this->clock->now() - $this->lockedAt < $staleAfter) {
+                    return false;
+                }
+                $this->lockedAt = $this->clock->now();
 
-                return $this->inner->acquireLock($staleAfter);
+                return true;
             }
 
             public function releaseLock(): void
             {
-                $this->inner->releaseLock();
+                $this->lockedAt = null;
             }
 
             public function isLocked(): bool
             {
-                return $this->inner->isLocked();
+                return $this->lockedAt !== null;
             }
         };
-        $connection = new OAuthConnection($store, $this->transport, null, null, $this->clock, $this->sleeper);
-        $connection->connect(OAuthClientTest::server(), 'client-1', new Tokens('ifa_1', 'ifr_1', $this->clock->now + 3600));
-        $this->queueTokens('2');
-        self::assertTrue($connection->renew());
+    }
 
-        // A live renewal takes up to 28 s (3 × 8 s plus 2 × 2 s); a process taking
-        // over a dead one's lock must repeat its refresh well inside Instafind's
-        // 60 s window, which starts when the dead process first sent the token.
-        self::assertNotSame([], $store->staleAfter);
-        foreach ($store->staleAfter as $staleAfter) {
-            self::assertGreaterThan(28, $staleAfter);
-            self::assertLessThanOrEqual(40, $staleAfter);
-        }
+    public function testALeftoverLockIsTakenOverInsideInstafindsRetryWindow(): void
+    {
+        $store = $this->staleLockStore();
+        $sentAt = null;
+        $transport = new MockTransport(function () use (&$sentAt): Response {
+            $sentAt = $this->clock->now();
+
+            return new Response(200, ['content-type' => 'application/json'], (string) json_encode(['access_token' => 'ifa_2', 'refresh_token' => 'ifr_2', 'expires_in' => 3600]));
+        });
+        $connection = new OAuthConnection($store, $transport, null, null, $this->clock, $this->sleeper);
+        $connection->connect(OAuthClientTest::server(), 'client-1', new Tokens('ifa_1', 'ifr_1', $this->clock->now + 3600));
+        $connection->bearer();
+
+        // A process took the lock and sent ifr_1, which Instafind accepted, then died.
+        $died = $this->clock->now();
+        self::assertTrue($store->acquireLock(1));
+
+        // A waiting request takes the lock over and repeats the refresh inside
+        // Instafind's 60 s retry window, counted from the dead process's use.
+        self::assertTrue($connection->renew());
+        self::assertNotNull($sentAt);
+        self::assertLessThan($died + 60, $sentAt);
+        self::assertSame('ifr_2', $store->load()?->refreshToken());
+        self::assertFalse($store->isLocked());
+    }
+
+    public function testASlowTransportIsNotRetriedPastTheBudget(): void
+    {
+        // A PSR-18 client with a 15 s timeout: a second attempt could end after
+        // the lock goes stale, and another process would spend the same token.
+        $transport = new MockTransport(function (): TransportException {
+            $this->clock->advance(15);
+
+            return new TransportException('timeout');
+        });
+        $connection = new OAuthConnection($this->store, $transport, null, null, $this->clock, $this->sleeper);
+        $connection->connect(OAuthClientTest::server(), 'client-1', new Tokens('ifa_1', 'ifr_1', $this->clock->now + 3600));
+        $connection->bearer();
+
+        self::assertFalse($connection->renew());
+        self::assertCount(1, $transport->requests());
+    }
+
+    public function testAFastTransportGetsAllAttempts(): void
+    {
+        $transport = new MockTransport(function (): TransportException {
+            $this->clock->advance(8);
+
+            return new TransportException('timeout');
+        });
+        $connection = new OAuthConnection($this->store, $transport, null, null, $this->clock, $this->sleeper);
+        $connection->connect(OAuthClientTest::server(), 'client-1', new Tokens('ifa_1', 'ifr_1', $this->clock->now + 3600));
+        $connection->bearer();
+
+        self::assertFalse($connection->renew());
+        self::assertCount(3, $transport->requests());
+    }
+
+    public function testALockHeldUntilItWentStaleIsNotReleased(): void
+    {
+        $store = $this->staleLockStore();
+        $transport = new MockTransport(function (): Response {
+            // A client without a timeout hangs; meanwhile another process may
+            // have taken the lock over as stale, and it is now that one's.
+            $this->clock->advance(40);
+
+            return new Response(200, ['content-type' => 'application/json'], (string) json_encode(['access_token' => 'ifa_2', 'refresh_token' => 'ifr_2', 'expires_in' => 3600]));
+        });
+        $connection = new OAuthConnection($store, $transport, null, null, $this->clock, $this->sleeper);
+        $connection->connect(OAuthClientTest::server(), 'client-1', new Tokens('ifa_1', 'ifr_1', $this->clock->now + 3600));
+        $connection->bearer();
+        self::assertFalse($store->isLocked());
+
+        self::assertTrue($connection->renew());
+        self::assertTrue($store->isLocked());
     }
 
     public function testDisconnectRevokesAndForgets(): void
