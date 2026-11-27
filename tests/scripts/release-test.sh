@@ -43,9 +43,20 @@ git clone --quiet "$base/origin.git" "$base/work" 2>/dev/null
 cd "$base/work"
 git checkout --quiet -b main
 mkdir -p src
-cp -r "$repo/scripts" "$repo/changelog.d" "$repo/CHANGELOG.md" .
+cp -r "$repo/scripts" .
 cp "$repo/src/Sdk.php" src/
-# This repository's own fragments stand in for a release's notes; one more makes sure there is one.
+# A changelog from before the first release, not the repository's own, which
+# stops being one once v1.0.0 is out.
+url=https://github.com/instafind-io/instafind-php-sdk
+mkdir changelog.d
+cp "$repo/changelog.d/README.md" changelog.d/
+cat > CHANGELOG.md <<CHANGELOG
+# Changelog
+
+## [Unreleased]
+
+[Unreleased]: $url/commits/main
+CHANGELOG
 printf '### Added\n\n- Something new.\n' > changelog.d/test-added.md
 git add -A && git commit --quiet -m init && git push --quiet origin main
 
@@ -55,7 +66,6 @@ expect "the notes are the fragments" 0 '^- Something new\.$' -- scripts/release.
 expect "nothing is pushed without --push" 0 'Nothing pushed\. Run again with --push to release v1\.0\.0\.' -- scripts/release.sh major
 
 # As if v1.0.0 were released: its section, the links, the constant, no fragments.
-url=https://github.com/instafind-io/instafind-php-sdk
 cat > CHANGELOG.md <<CHANGELOG
 # Changelog
 
