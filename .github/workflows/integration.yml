@@ -37,12 +37,14 @@ jobs:
           php-version: '8.5'
           extensions: curl, json
           coverage: none
-      # Only what the test needs: the linters' dependencies never load next
-      # to the key.
-      - name: Install dependencies
+      # No Composer packages next to the key: the SDK needs none, and PHPUnit
+      # is a PHAR pinned by checksum (signed by Sebastian Bergmann, key
+      # D8406D0D82947747293778314AA394086372C20A, checked 2026-11-27).
+      - name: Autoloader and PHPUnit
         run: |
-          composer remove --dev --no-update --no-interaction friendsofphp/php-cs-fixer phpstan/phpstan php-stubs/wordpress-stubs
-          composer update --no-interaction --no-progress --prefer-dist
+          composer dump-autoload --no-interaction
+          curl -sSfLo phpunit.phar https://phar.phpunit.de/phpunit-10.5.67.phar
+          echo "0635a0a340df88ea3a2c4e726a0df14160fbb542550a36cbda70921dbd756f95  phpunit.phar" | sha256sum -c -
       - name: Live API
         env:
           INSTAFIND_CI_API_KEY: ${{ secrets.INSTAFIND_CI_API_KEY }}
@@ -57,4 +59,4 @@ jobs:
             echo "::error::The INSTAFIND_CI_API_KEY secret is missing."
             exit 1
           fi
-          vendor/bin/phpunit --testsuite integration --fail-on-skipped
+          php phpunit.phar --testsuite integration --fail-on-skipped

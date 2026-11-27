@@ -79,11 +79,13 @@ Without a local PHP, run them in Docker, e.g.
 `.github/workflows/integration.yml` runs `tests/Integration/LiveApiTest.php`
 against production's "PHP SDK CI" website: by hand (`gh workflow run
 integration.yml`), on a schedule once enabled, and never on pull requests.
-The job uses the environment `live-integration`, which runs from `main` only.
-Secrets `INSTAFIND_CI_API_KEY`, `INSTAFIND_CI_WEBSITE_ID`,
-`INSTAFIND_CI_BASE_URL`; repository variables `INSTAFIND_CI_INDEX_ID` (the
-reused index, as the API cannot list indexes) and optionally
-`INSTAFIND_CI_PUBLIC_BASE_URL` (default `https://s.instafind.io`). It writes
+The job uses the environment `live-integration` (deployment branch `main`
+only), which holds its secrets `INSTAFIND_CI_API_KEY`,
+`INSTAFIND_CI_WEBSITE_ID`, `INSTAFIND_CI_BASE_URL`; never repository secrets,
+which any branch's workflow could read. It runs no Composer packages, only
+the SDK's autoloader and a PHPUnit PHAR pinned by checksum. Repository
+variables: `INSTAFIND_CI_INDEX_ID` (the reused index, as the API cannot
+list indexes) and optionally `INSTAFIND_CI_PUBLIC_BASE_URL` (default `https://s.instafind.io`). It writes
 three fixed products and deletes them, sends one fixed order (which stays),
 and sets the CI index's campaign page, default filters and template. Without
 `INSTAFIND_CI_INDEX_ID` it creates the index and fails with the id to set.
