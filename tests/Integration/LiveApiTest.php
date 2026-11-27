@@ -40,6 +40,9 @@ final class LiveApiTest extends TestCase
 {
     public const INDEX_NAME = 'php-sdk-ci';
 
+    /** Checked before anything is written, so other websites' keys write nothing. */
+    public const WEBSITE_NAME = 'PHP SDK CI';
+
     private const PRODUCT_IDS = ['sdk-ci-1', 'sdk-ci-2', 'sdk-ci-3'];
 
     private const ORDER_REFERENCE = 'sdk-ci-order-1';
@@ -95,7 +98,9 @@ final class LiveApiTest extends TestCase
         foreach (['indexes:read', 'indexes:manage', 'products:read', 'products:write', 'products:delete', 'analytics:read', 'orders:write'] as $scope) {
             self::assertTrue($key->hasScope($scope), "The CI key lacks $scope.");
         }
-        self::assertSame($key->websiteId(), $this->api()->website($key->websiteId())->id());
+        $website = $this->api()->website($key->websiteId());
+        self::assertSame($key->websiteId(), $website->id());
+        self::assertSame(self::WEBSITE_NAME, $website->name(), 'The CI key belongs to another website.');
     }
 
     #[Depends('testTheKeyBelongsToTheCiWebsite')]
@@ -110,6 +115,10 @@ final class LiveApiTest extends TestCase
         ]);
         $indexId = self::env('INSTAFIND_CI_INDEX_ID');
         if ($indexId === '') {
+            // Only on a website without indexes, so a lost variable cannot
+            // add an index on every run.
+            $count = $this->api()->website(self::env('INSTAFIND_CI_WEBSITE_ID'))->searchIndexCount();
+            self::assertSame(0, $count, 'Set the repository variable INSTAFIND_CI_INDEX_ID to the CI index; the website already has ' . $count . ' index(es).');
             $index = $this->api()->createIndex(self::env('INSTAFIND_CI_WEBSITE_ID'), $schema, 'en', self::INDEX_NAME);
             self::$createdIndex = true;
             fwrite(STDERR, "\nCreated the CI index " . $index->id() . ". Set the repository variable INSTAFIND_CI_INDEX_ID to it.\n");

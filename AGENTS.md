@@ -79,6 +79,7 @@ Without a local PHP, run them in Docker, e.g.
 `.github/workflows/integration.yml` runs `tests/Integration/LiveApiTest.php`
 against production's "PHP SDK CI" website: by hand (`gh workflow run
 integration.yml`), on a schedule once enabled, and never on pull requests.
+The job uses the environment `live-integration`, which runs from `main` only.
 Secrets `INSTAFIND_CI_API_KEY`, `INSTAFIND_CI_WEBSITE_ID`,
 `INSTAFIND_CI_BASE_URL`; repository variables `INSTAFIND_CI_INDEX_ID` (the
 reused index, as the API cannot list indexes) and optionally

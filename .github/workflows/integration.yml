@@ -26,16 +26,23 @@ jobs:
   live:
     if: github.repository == 'instafind-io/instafind-php-sdk'
     runs-on: ubuntu-latest
+    # Deployment branches: main only.
+    environment: live-integration
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
+      # Pinned: this job holds a production key.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
         with:
           php-version: '8.5'
           extensions: curl, json
           coverage: none
+      # Only what the test needs: the linters' dependencies never load next
+      # to the key.
       - name: Install dependencies
-        run: composer update --no-interaction --no-progress --prefer-dist
+        run: |
+          composer remove --dev --no-update --no-interaction friendsofphp/php-cs-fixer phpstan/phpstan php-stubs/wordpress-stubs
+          composer update --no-interaction --no-progress --prefer-dist
       - name: Live API
         env:
           INSTAFIND_CI_API_KEY: ${{ secrets.INSTAFIND_CI_API_KEY }}

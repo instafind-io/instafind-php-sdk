@@ -151,7 +151,10 @@ fi
 # The live integration job must have passed on origin/main's tip, which the
 # release commit goes on top of.
 sha=$(git -C "$tree" rev-parse HEAD)
-green=$(gh run list --repo instafind-io/instafind-php-sdk --workflow=integration.yml --commit "$sha" --status success --limit 1 --json databaseId --jq length 2>/dev/null || echo 0)
+if ! green=$(gh run list --repo instafind-io/instafind-php-sdk --workflow=integration.yml --commit "$sha" --status success --limit 1 --json databaseId --jq length 2>&1); then
+    echo "Could not ask GitHub for live integration runs: $green" >&2
+    exit 1
+fi
 if [[ "$green" != "1" ]]; then
     echo "No green live integration run on $sha. Run it, wait for it, then release:" >&2
     echo "  gh workflow run integration.yml --repo instafind-io/instafind-php-sdk --ref main" >&2
