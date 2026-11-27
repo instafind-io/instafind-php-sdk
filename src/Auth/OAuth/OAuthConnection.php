@@ -75,7 +75,15 @@ final class OAuthConnection implements Credential
      */
     public function connect(AuthorizationServer $server, string $clientId, Tokens $tokens): void
     {
-        $this->write(ConnectionState::fromTokens($server, $clientId, $tokens));
+        // Behind the renewal lock, so a running renewal cannot overwrite it.
+        $locked = $this->lock();
+        try {
+            $this->write(ConnectionState::fromTokens($server, $clientId, $tokens));
+        } finally {
+            if ($locked) {
+                $this->store->releaseLock();
+            }
+        }
     }
 
     /** The stored connection, null when there is none. */
@@ -106,13 +114,8 @@ final class OAuthConnection implements Credential
      */
     public function disconnect(): bool
     {
-        // Behind the renewal lock, so no renewal stores new tokens meanwhile.
-        $locked = $this->store->acquireLock(self::LOCK_STALE);
-        if (!$locked) {
-            $this->waitForLock();
-            $locked = $this->store->acquireLock(self::LOCK_STALE);
-        }
-
+        // Behind the renewal lock, so no renewal or new connection is stored meanwhile.
+        $locked = $this->lock();
         try {
             $state = $this->read();
             $revoked = false;
@@ -123,11 +126,6 @@ final class OAuthConnection implements Credential
                 } catch (InstafindException) {
                     // Forget it anyway: see above.
                 }
-            }
-            // Someone connected again while Instafind answered: keep that connection.
-            $now = $this->read();
-            if ($now !== null && $now->refreshToken() !== $state?->refreshToken()) {
-                return $revoked;
             }
             $this->store->delete();
             $this->current = '';
@@ -223,6 +221,20 @@ final class OAuthConnection implements Credential
                 $this->sleeper->sleep(self::REFRESH_PAUSE);
             }
         }
+    }
+
+    /**
+     * Take the lock, waiting for a renewal that holds it. Whether it was
+     * taken: after LOCK_WAIT the caller goes ahead without it.
+     */
+    private function lock(): bool
+    {
+        if ($this->store->acquireLock(self::LOCK_STALE)) {
+            return true;
+        }
+        $this->waitForLock();
+
+        return $this->store->acquireLock(self::LOCK_STALE);
     }
 
     /** Wait until another process releases the lock, or LOCK_WAIT has passed. */
